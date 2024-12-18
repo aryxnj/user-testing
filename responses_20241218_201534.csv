@@ -1,0 +1,18 @@
+Timestamp,Page,Musical Background,Age,Gender,Input File,Output File,Model,Rating
+2024-12-18T20:15:08.182035,welcome,Beginner,21,Prefer not to say,,,,
+2024-12-18T20:15:20.611829,testing,,,,input-4.mp4,output-4-mono.mp4,mono,3
+2024-12-18T20:15:21.560931,testing,,,,input-4.mp4,output-4-lookback.mp4,lookback,3
+2024-12-18T20:15:22.009629,testing,,,,input-4.mp4,output-4-basic.mp4,basic,3
+2024-12-18T20:15:22.488671,testing,,,,input-4.mp4,output-4-attention.mp4,attention,3
+2024-12-18T20:15:23.195760,testing,,,,input-6.mp4,output-6-basic.mp4,basic,3
+2024-12-18T20:15:23.829821,testing,,,,input-6.mp4,output-6-lookback.mp4,lookback,3
+2024-12-18T20:15:24.555866,testing,,,,input-6.mp4,output-6-mono.mp4,mono,3
+2024-12-18T20:15:25.295397,testing,,,,input-6.mp4,output-6-attention.mp4,attention,3
+2024-12-18T20:15:26.672849,testing,,,,input-3.mp4,output-3-basic.mp4,basic,3
+2024-12-18T20:15:27.009834,testing,,,,input-3.mp4,output-3-mono.mp4,mono,3
+2024-12-18T20:15:27.394458,testing,,,,input-3.mp4,output-3-lookback.mp4,lookback,3
+2024-12-18T20:15:27.941573,testing,,,,input-3.mp4,output-3-attention.mp4,attention,3
+2024-12-18T20:15:28.394935,testing,,,,input-5.mp4,output-5-mono.mp4,mono,3
+2024-12-18T20:15:28.809027,testing,,,,input-5.mp4,output-5-basic.mp4,basic,3
+2024-12-18T20:15:29.245153,testing,,,,input-5.mp4,output-5-lookback.mp4,lookback,3
+2024-12-18T20:15:29.610465,testing,,,,input-5.mp4,output-5-attention.mp4,attention,3
