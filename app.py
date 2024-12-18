@@ -1,8 +1,7 @@
 import streamlit as st
-import os
-import random
+from sqlalchemy import create_engine, text
 from pathlib import Path
-import csv
+import random
 from datetime import datetime
 
 # Set page configuration
@@ -64,40 +63,54 @@ def reset_session():
             del st.session_state[key]
     st.rerun()
 
-# Function to save responses to a CSV file
+# Function to initialize database connection
+def init_db():
+    if 'db_engine' not in st.session_state:
+        try:
+            db_url = f"postgresql://{st.secrets['postgres']['user']}:{st.secrets['postgres']['password']}@" \
+                     f"{st.secrets['postgres']['host']}:{st.secrets['postgres']['port']}/{st.secrets['postgres']['database']}"
+            engine = create_engine(db_url, connect_args={"sslmode": st.secrets['postgres']['sslmode']})
+            st.session_state.db_engine = engine
+        except Exception as e:
+            st.error(f"Error connecting to PostgreSQL: {e}")
+
+# Function to save responses to PostgreSQL
 def save_responses():
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    filename = f"responses_{timestamp}.csv"
-    with open(filename, mode='w', newline='', encoding='utf-8') as csv_file:
-        fieldnames = ['Timestamp', 'Page', 'Musical Background', 'Age', 'Gender',
-                      'Input File', 'Output File', 'Model', 'Rating']
-        writer = csv.DictWriter(csv_file, fieldnames=fieldnames)
-        writer.writeheader()
-        for response in st.session_state.responses:
-            if response['page'] == 'welcome':
-                writer.writerow({
-                    'Timestamp': response.get('timestamp', ''),
-                    'Page': response['page'],
-                    'Musical Background': response.get('musical_background', ''),
-                    'Age': response.get('age', ''),
-                    'Gender': response.get('gender', ''),
-                    'Input File': '',
-                    'Output File': '',
-                    'Model': '',
-                    'Rating': ''
-                })
-            elif response['page'] == 'testing':
-                writer.writerow({
-                    'Timestamp': response.get('timestamp', ''),
-                    'Page': response['page'],
-                    'Musical Background': '',
-                    'Age': '',
-                    'Gender': '',
-                    'Input File': response.get('input', ''),
-                    'Output File': response.get('output', ''),
-                    'Model': response.get('model', ''),
-                    'Rating': response.get('rating', '')
-                })
+    if 'db_engine' not in st.session_state:
+        st.error("Database not initialized.")
+        return
+    engine = st.session_state.db_engine
+    try:
+        with engine.connect() as connection:
+            for response in st.session_state.responses:
+                if response['page'] == 'welcome':
+                    # Insert user info
+                    insert_query = text("""
+                        INSERT INTO user_info (timestamp, musical_background, age, gender)
+                        VALUES (:timestamp, :musical_background, :age, :gender)
+                    """)
+                    connection.execute(insert_query, {
+                        'timestamp': datetime.fromisoformat(response.get('timestamp', '')).strftime('%Y-%m-%d %H:%M:%S'),
+                        'musical_background': response.get('musical_background', ''),
+                        'age': response.get('age', ''),
+                        'gender': response.get('gender', '')
+                    })
+                elif response['page'] == 'testing':
+                    # Insert user ratings
+                    insert_query = text("""
+                        INSERT INTO user_ratings (timestamp, input_file, output_file, model, rating)
+                        VALUES (:timestamp, :input_file, :output_file, :model, :rating)
+                    """)
+                    connection.execute(insert_query, {
+                        'timestamp': datetime.fromisoformat(response.get('timestamp', '')).strftime('%Y-%m-%d %H:%M:%S'),
+                        'input_file': response.get('input', ''),
+                        'output_file': response.get('output', ''),
+                        'model': response.get('model', ''),
+                        'rating': response.get('rating', 0)
+                    })
+        st.success("Your responses have been recorded. Thank you!")
+    except Exception as e:
+        st.error(f"Error saving responses: {e}")
 
 # Welcome Page
 def welcome_page():
@@ -209,10 +222,12 @@ def closing_page():
     """)
     if st.button("Submit Responses and Exit"):
         save_responses()
-        st.success("Your responses have been recorded. Thank you!")
         st.stop()
     if st.button("Restart"):
         reset_session()
+
+# Initialize Database Connection
+init_db()
 
 # Navigation
 if st.session_state.page == 'welcome':
