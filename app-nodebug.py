@@ -71,7 +71,6 @@ def init_db():
                      f"{st.secrets['postgres']['host']}:{st.secrets['postgres']['port']}/{st.secrets['postgres']['database']}"
             engine = create_engine(db_url, connect_args={"sslmode": st.secrets['postgres']['sslmode']})
             st.session_state.db_engine = engine
-            st.success("Database connection established successfully.")
         except Exception as e:
             st.error(f"Error connecting to PostgreSQL: {e}")
 
@@ -90,16 +89,11 @@ def save_responses():
                         INSERT INTO user_info (timestamp, musical_background, age, gender)
                         VALUES (:timestamp, :musical_background, :age, :gender)
                     """)
-                    timestamp = response.get('timestamp', '')
-                    musical_background = response.get('musical_background', '')
-                    age = response.get('age', '')
-                    gender = response.get('gender', '')
-                    st.write(f"Inserting into user_info: {timestamp}, {musical_background}, {age}, {gender}")
                     connection.execute(insert_query, {
-                        'timestamp': datetime.fromisoformat(timestamp).strftime('%Y-%m-%d %H:%M:%S'),
-                        'musical_background': musical_background,
-                        'age': age,
-                        'gender': gender
+                        'timestamp': datetime.fromisoformat(response.get('timestamp', '')).strftime('%Y-%m-%d %H:%M:%S'),
+                        'musical_background': response.get('musical_background', ''),
+                        'age': response.get('age', ''),
+                        'gender': response.get('gender', '')
                     })
                 elif response['page'] == 'testing':
                     # Insert user ratings
@@ -107,18 +101,12 @@ def save_responses():
                         INSERT INTO user_ratings (timestamp, input_file, output_file, model, rating)
                         VALUES (:timestamp, :input_file, :output_file, :model, :rating)
                     """)
-                    timestamp = response.get('timestamp', '')
-                    input_file = response.get('input', '')
-                    output_file = response.get('output', '')
-                    model = response.get('model', '')
-                    rating = response.get('rating', 0)
-                    st.write(f"Inserting into user_ratings: {timestamp}, {input_file}, {output_file}, {model}, {rating}")
                     connection.execute(insert_query, {
-                        'timestamp': datetime.fromisoformat(timestamp).strftime('%Y-%m-%d %H:%M:%S'),
-                        'input_file': input_file,
-                        'output_file': output_file,
-                        'model': model,
-                        'rating': rating
+                        'timestamp': datetime.fromisoformat(response.get('timestamp', '')).strftime('%Y-%m-%d %H:%M:%S'),
+                        'input_file': response.get('input', ''),
+                        'output_file': response.get('output', ''),
+                        'model': response.get('model', ''),
+                        'rating': response.get('rating', 0)
                     })
         st.success("Your responses have been recorded. Thank you!")
     except Exception as e:
@@ -253,11 +241,5 @@ elif st.session_state.page == 'closing':
 else:
     st.error("Unknown page!")
 
-# Debug Section: Show collected responses (for troubleshooting)
-if st.checkbox("Show Collected Responses"):
-    st.write(st.session_state.responses)
-
-# Optionally, run the database connection test
-if st.checkbox("Run Database Connection Test"):
-    test_db_connection()
-
+# Optionally, display the responses for debugging purposes
+# st.write(st.session_state.responses)
