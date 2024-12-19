@@ -5,13 +5,6 @@ from pathlib import Path
 import random
 from datetime import datetime
 
-# Set page configuration FIRST with centered layout
-st.set_page_config(
-    page_title="AI Music Assistant User Testing",
-    layout="centered",  # Changed from "wide" to "centered"
-    initial_sidebar_state="collapsed"
-)
-
 # Initialize session state variables
 if 'page' not in st.session_state:
     st.session_state.page = 'welcome'
