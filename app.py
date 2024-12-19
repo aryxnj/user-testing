@@ -7,7 +7,7 @@ from datetime import datetime
 # Set page configuration FIRST with centered layout
 st.set_page_config(
     page_title="AI Music Assistant User Testing",
-    layout="centered",  # Changed from "wide" to "centered"
+    layout="centered",
     initial_sidebar_state="collapsed"
 )
 
@@ -143,9 +143,9 @@ def save_feedback():
         st.error(f"Error saving feedback: {e}")
         raise e  # Add this to display full error in Streamlit logs
 
-# Function to scroll to the top of the page
+# Function to scroll to the top of the page with delay
 def scroll_to_top():
-    st.markdown(
+    st.components.v1.html(
         """
         <script>
         setTimeout(function(){
@@ -153,9 +153,9 @@ def scroll_to_top():
         }, 100);
         </script>
         """,
-        unsafe_allow_html=True,
+        height=0,
+        width=0,
     )
-
 
 # Mapping of input files to their descriptive names (without number of bars)
 input_name_mapping = {
@@ -216,7 +216,6 @@ evaluation_criteria = [
 
 # Welcome Page
 def welcome_page():
-    scroll_to_top()  # Scroll to top at the start of the page
     st.image("banner.png", use_container_width=True)  # Ensure 'banner.png' exists in your project directory
     st.title("🎵 Welcome to the AI Music Assistant User Testing 🎵")
     st.markdown("""
@@ -255,7 +254,7 @@ def welcome_page():
                     'timestamp': datetime.now().isoformat(),
                     'page': 'welcome',
                     'musical_background': musical_background,
-                    'age': age,
+                    'age': int(age),
                     'gender': gender
                 })
                 st.session_state.page = 'instructions'
@@ -263,7 +262,6 @@ def welcome_page():
 
 # Instructions Page
 def instructions_page():
-    scroll_to_top()  # Scroll to top at the start of the page
     st.title("📋 Testing Protocol Instructions 📋")
     st.markdown("""
         ### Scoring Method
@@ -298,7 +296,6 @@ def instructions_page():
 
 # Loading Page
 def loading_page():
-    scroll_to_top()  # Scroll to top at the start of the page
     st.markdown("### Please wait while we submit your answers. Do not close this tab.")
     with st.spinner("Submitting your responses..."):
         save_ratings()
@@ -316,7 +313,6 @@ def testing_page():
     progress = current_step / st.session_state.total_steps
     st.progress(progress)
     st.sidebar.markdown(f"**Progress:** Step {current_step} of {st.session_state.total_steps}")
-    scroll_to_top()  # Scroll to top at the start of the page
 
     if current_input_index < len(input_files):
         current_input_file = input_files[current_input_index]
@@ -390,7 +386,6 @@ def testing_page():
 
 # Closing Page
 def closing_page():
-    scroll_to_top()  # Scroll to top at the start of the page
     st.image("closing_banner.png", use_container_width=True)  # Ensure 'closing_banner.png' exists in your project directory
     st.title("✅ Thank You for Your Participation!")
     st.markdown("""
@@ -415,16 +410,35 @@ def closing_page():
 # Initialize Database Connection
 init_db()
 
+# Function to handle scrolling after rerun
+def handle_scrolling():
+    st.components.v1.html(
+        """
+        <script>
+        setTimeout(function(){
+            window.scrollTo(0, 0);
+        }, 100);
+        </script>
+        """,
+        height=0,
+        width=0,
+    )
+
 # Navigation
 if st.session_state.page == 'welcome':
     welcome_page()
+    handle_scrolling()
 elif st.session_state.page == 'instructions':
     instructions_page()
+    handle_scrolling()
 elif st.session_state.page == 'testing':
     testing_page()
+    handle_scrolling()
 elif st.session_state.page == 'loading':
     loading_page()
+    handle_scrolling()
 elif st.session_state.page == 'closing':
     closing_page()
+    handle_scrolling()
 else:
     st.error("Unknown page!")
