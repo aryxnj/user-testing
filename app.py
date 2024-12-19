@@ -3,6 +3,7 @@ from sqlalchemy import create_engine, text
 from pathlib import Path
 import random
 from datetime import datetime
+import streamlit.components.v1 as components  # Import components for JavaScript injection
 
 # Set page configuration FIRST with centered layout
 st.set_page_config(
@@ -10,14 +11,6 @@ st.set_page_config(
     layout="centered",  # Changed from "wide" to "centered"
     initial_sidebar_state="collapsed"
 )
-
-js = '''
-<script>
-    var body = window.parent.document.querySelector(".main");
-    console.log(body);
-    body.scrollTop = 0;
-</script>
-'''
 
 # Initialize session state variables
 if 'page' not in st.session_state:
@@ -75,10 +68,7 @@ def reset_session():
     for key in ['page', 'responses', 'current_input_index', 'current_output_index', 'input_order', 'output_orders', 'total_steps', 'submitting']:
         if key in st.session_state:
             del st.session_state[key]
-    st.components.v1.html(js)
     st.rerun()
-    st.components.v1.html(js)
-
 
 # Function to initialize database connection
 def init_db():
@@ -154,6 +144,18 @@ def save_feedback():
         st.error(f"Error saving feedback: {e}")
         raise e  # Add this to display full error in Streamlit logs
 
+# Function to scroll to top
+def scroll_to_top():
+    components.html(
+        """
+        <script>
+        window.scrollTo(0, 0);
+        </script>
+        """,
+        height=0,
+        width=0,
+    )
+
 # Mapping of input files to their descriptive names (without number of bars)
 input_name_mapping = {
     "input-3.mp4": "Familiar Tonal Snippet",
@@ -213,13 +215,14 @@ evaluation_criteria = [
 
 # Welcome Page
 def welcome_page():
+    scroll_to_top()  # Scroll to top when this page is loaded
     st.image("banner.png", use_container_width=True)  # Ensure 'banner.png' exists in your project directory
     st.title("🎵 Welcome to the AI Music Assistant User Testing 🎵")
     st.markdown("""
         Thank you for participating! In this study, you'll listen to original MIDI files and continuations from various models. 
         Your feedback will help us enhance our AI's musical capabilities.
     """)
-
+    
     with st.form("user_info"):
         st.subheader("Please provide some information about yourself:")
         col1, col2 = st.columns(2)
@@ -255,12 +258,11 @@ def welcome_page():
                     'gender': gender
                 })
                 st.session_state.page = 'instructions'
-                st.components.v1.html(js)
                 st.rerun()
-                st.components.v1.html(js)
 
 # Instructions Page
 def instructions_page():
+    scroll_to_top()  # Scroll to top when this page is loaded
     st.title("📋 Testing Protocol Instructions 📋")
     st.markdown("""
         ### Scoring Method
@@ -272,42 +274,40 @@ def instructions_page():
         ### Test Melodies Overview
 
         Each melody has been designed to represent different musical characteristics, complexity levels, and lengths. The idea is to provide a diverse set of test inputs so the continuation models can be evaluated on a range of scenarios.
-
+        
         1. **Familiar Tonal Snippet**
             - **Description:** A short excerpt inspired by a familiar children’s melody, using only a few pitches within a simple scale.
             - **Reasoning:** Evaluates how well the model continues a well-known melodic pattern, potentially revealing if it respects common tonal tendencies and phrase endings.
-
+        
         2. **Medium-Length Original Melody**
             - **Description:** A custom, moderately long melody that mixes different note lengths and steps mostly within a major scale.
             - **Reasoning:** Provides a more realistic musical context, testing the model’s handling of basic musical structure, varied rhythms, and thematic development.
-
+        
         3. **Atonal, Wide-Range Melody**
             - **Description:** A short sequence without a clear key, incorporating large jumps and diverse pitches.
             - **Reasoning:** Challenges the model to cope with irregular, disjunct patterns and to see if it imposes its own structure or explores outside tonal norms.
-
+        
         4. **Long Repetitive Motif**
             - **Description:** An extended sequence made by repeating a two-bar motif several times.
             - **Reasoning:** Assesses how the model deals with longer context and repetitive patterns. Will it continue with variations, remain consistent, or diverge unexpectedly?
     """)
     if st.button("✅ Begin Testing"):
         st.session_state.page = 'testing'
-        st.components.v1.html(js)
         st.rerun()
-        st.components.v1.html(js)
 
 # Loading Page
 def loading_page():
+    scroll_to_top()  # Scroll to top when this page is loaded
     st.markdown("### Please wait while we submit your answers. Do not close this tab.")
     with st.spinner("Submitting your responses..."):
         save_ratings()
     # After submission, move to closing page
     st.session_state.page = 'closing'
-    st.components.v1.html(js)
     st.rerun()
-    st.components.v1.html(js)
 
 # Testing Page
 def testing_page():
+    scroll_to_top()  # Scroll to top when this page is loaded
     input_files = st.session_state.input_order
     current_input_index = st.session_state.current_input_index
 
@@ -372,31 +372,24 @@ def testing_page():
                     if is_last_input and is_last_output:
                         # Move to loading page
                         st.session_state.page = 'loading'
-                        st.components.v1.html(js)
                         st.rerun()
-                        st.components.v1.html(js)
                     else:
                         st.success("✅ Rating submitted successfully!")
                         # Move to next output
                         st.session_state.current_output_index += 1
-                        st.components.v1.html(js)
                         st.rerun()
-                        st.components.v1.html(js)
         else:
             # Move to next input
             st.session_state.current_input_index += 1
             st.session_state.current_output_index = 0
-            st.components.v1.html(js)
             st.rerun()
-            st.components.v1.html(js)
     else:
         st.session_state.page = 'closing'
-        st.components.v1.html(js)
         st.rerun()
-        st.components.v1.html(js)
 
 # Closing Page
 def closing_page():
+    scroll_to_top()  # Scroll to top when this page is loaded
     st.image("closing_banner.png", use_container_width=True)  # Ensure 'closing_banner.png' exists in your project directory
     st.title("✅ Thank You for Your Participation!")
     st.markdown("""
@@ -420,6 +413,8 @@ def closing_page():
 
 # Initialize Database Connection
 init_db()
+
+scroll_to_top()  # Scroll to top when the app is loaded
 
 # Navigation
 if st.session_state.page == 'welcome':
