@@ -5,22 +5,19 @@ from pathlib import Path
 import random
 from datetime import datetime
 
-# Add an invisible anchor at the top
-st.markdown('<a id="top"></a>', unsafe_allow_html=True)
-
-# Function to scroll to top using anchor
+# Function to scroll to top with a unique key
 def scroll_to_top():
     components.html(
         """
         <script>
-        window.location.hash = '#top';
+        window.scrollTo(0, 0);
         </script>
         """,
         height=0,
         width=0,
-        key=f"scroll_{int(datetime.now().timestamp())}"
+        key=f"scroll_{int(datetime.now().timestamp())}"  # Unique key to force re-render
     )
-    
+
 # Initialize session state variables
 if 'page' not in st.session_state:
     st.session_state.page = 'welcome'
@@ -209,6 +206,9 @@ evaluation_criteria = [
         }
     }
 ]
+
+# Call scroll_to_top once at the beginning of the script
+scroll_to_top()
 
 # Welcome Page
 def welcome_page():
@@ -405,9 +405,6 @@ def closing_page():
 
 # Initialize Database Connection
 init_db()
-
-
-scroll_to_top()
 
 # Navigation
 if st.session_state.page == 'welcome':
