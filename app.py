@@ -11,6 +11,14 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
+js = '''
+<script>
+    var body = window.parent.document.querySelector(".main");
+    console.log(body);
+    body.scrollTop = 0;
+</script>
+'''
+
 # Initialize session state variables
 if 'page' not in st.session_state:
     st.session_state.page = 'welcome'
@@ -67,7 +75,10 @@ def reset_session():
     for key in ['page', 'responses', 'current_input_index', 'current_output_index', 'input_order', 'output_orders', 'total_steps', 'submitting']:
         if key in st.session_state:
             del st.session_state[key]
+    st.components.v1.html(js)
     st.rerun()
+    st.components.v1.html(js)
+
 
 # Function to initialize database connection
 def init_db():
@@ -244,7 +255,9 @@ def welcome_page():
                     'gender': gender
                 })
                 st.session_state.page = 'instructions'
+                st.components.v1.html(js)
                 st.rerun()
+                st.components.v1.html(js)
 
 # Instructions Page
 def instructions_page():
@@ -278,7 +291,9 @@ def instructions_page():
     """)
     if st.button("✅ Begin Testing"):
         st.session_state.page = 'testing'
+        st.components.v1.html(js)
         st.rerun()
+        st.components.v1.html(js)
 
 # Loading Page
 def loading_page():
@@ -287,7 +302,9 @@ def loading_page():
         save_ratings()
     # After submission, move to closing page
     st.session_state.page = 'closing'
+    st.components.v1.html(js)
     st.rerun()
+    st.components.v1.html(js)
 
 # Testing Page
 def testing_page():
@@ -355,20 +372,28 @@ def testing_page():
                     if is_last_input and is_last_output:
                         # Move to loading page
                         st.session_state.page = 'loading'
+                        st.components.v1.html(js)
                         st.rerun()
+                        st.components.v1.html(js)
                     else:
                         st.success("✅ Rating submitted successfully!")
                         # Move to next output
                         st.session_state.current_output_index += 1
+                        st.components.v1.html(js)
                         st.rerun()
+                        st.components.v1.html(js)
         else:
             # Move to next input
             st.session_state.current_input_index += 1
             st.session_state.current_output_index = 0
+            st.components.v1.html(js)
             st.rerun()
+            st.components.v1.html(js)
     else:
         st.session_state.page = 'closing'
+        st.components.v1.html(js)
         st.rerun()
+        st.components.v1.html(js)
 
 # Closing Page
 def closing_page():
