@@ -346,8 +346,9 @@ def testing_page():
                     is_last_input = (current_input_index == len(input_files) - 1)
                     is_last_output = (output_index == total_outputs - 1)
                     if is_last_input and is_last_output:
-                        # Save user info and ratings to the database
-                        save_ratings()
+                        # Show a spinner while submitting responses
+                        with st.spinner("Please wait while we submit your answers. Do not close this tab."):
+                            save_ratings()
                         # Move to closing page
                         st.session_state.page = 'closing'
                         st.rerun()
