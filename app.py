@@ -81,14 +81,15 @@ def init_db():
         except Exception as e:
             st.error(f"Error connecting to PostgreSQL: {e}")
 
-# Function to save responses to PostgreSQL
-def save_responses():
+# Function to save user information and ratings to PostgreSQL
+def save_ratings():
     if 'db_engine' not in st.session_state:
         st.error("Database not initialized.")
         return
     engine = st.session_state.db_engine
     try:
         with engine.begin() as connection:  # Use engine.begin to auto-commit
+            # Save user_info
             for response in st.session_state.responses:
                 if response['page'] == 'welcome':
                     insert_query = text("""
@@ -101,7 +102,9 @@ def save_responses():
                         'age': response.get('age', ''),
                         'gender': response.get('gender', '')
                     })
-                elif response['page'] == 'testing':
+            # Save user_ratings
+            for response in st.session_state.responses:
+                if response['page'] == 'testing':
                     insert_query = text("""
                         INSERT INTO user_ratings (timestamp, input_file, output_file, continuation_number, criterion, rating)
                         VALUES (:timestamp, :input_file, :output_file, :continuation_number, :criterion, :rating)
@@ -114,7 +117,21 @@ def save_responses():
                         'criterion': response.get('criterion', ''),
                         'rating': response.get('rating', 0)
                     })
-                elif response['page'] == 'feedback':
+        st.success("Your ratings have been recorded. Thank you!")
+    except Exception as e:
+        st.error(f"Error saving ratings: {e}")
+        raise e  # Add this to display full error in Streamlit logs
+
+# Function to save feedback to PostgreSQL
+def save_feedback():
+    if 'db_engine' not in st.session_state:
+        st.error("Database not initialized.")
+        return
+    engine = st.session_state.db_engine
+    try:
+        with engine.begin() as connection:
+            for response in st.session_state.responses:
+                if response['page'] == 'feedback':
                     insert_query = text("""
                         INSERT INTO user_feedback (timestamp, feedback)
                         VALUES (:timestamp, :feedback)
@@ -123,9 +140,9 @@ def save_responses():
                         'timestamp': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
                         'feedback': response.get('feedback', '')
                     })
-        st.success("Your responses have been recorded. Thank you!")
+        st.success("Your feedback has been recorded. Thank you!")
     except Exception as e:
-        st.error(f"Error saving responses: {e}")
+        st.error(f"Error saving feedback: {e}")
         raise e  # Add this to display full error in Streamlit logs
 
 # Mapping of input files to their descriptive names (without number of bars)
@@ -325,10 +342,20 @@ def testing_page():
 
                 submitted = st.form_submit_button("Submit Rating")
                 if submitted:
-                    st.success("✅ Rating submitted successfully!")
-                    # Move to next output
-                    st.session_state.current_output_index += 1
-                    st.rerun()  # Ensure your Streamlit version supports st.rerun()
+                    # Determine if this is the last rating
+                    is_last_input = (current_input_index == len(input_files) - 1)
+                    is_last_output = (output_index == total_outputs - 1)
+                    if is_last_input and is_last_output:
+                        # Save user info and ratings to the database
+                        save_ratings()
+                        # Move to closing page
+                        st.session_state.page = 'closing'
+                        st.rerun()
+                    else:
+                        st.success("✅ Rating submitted successfully!")
+                        # Move to next output
+                        st.session_state.current_output_index += 1
+                        st.rerun()  # Ensure your Streamlit version supports st.rerun()
         else:
             # Move to next input
             st.session_state.current_input_index += 1
@@ -357,7 +384,8 @@ def closing_page():
                     'page': 'feedback',
                     'feedback': feedback
                 })
-            save_responses()
+            # Save feedback to the database
+            save_feedback()
             st.stop()
 
 # Initialize Database Connection
