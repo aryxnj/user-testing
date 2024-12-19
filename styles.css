@@ -1,6 +1,6 @@
 /* styles.css */
 
-/* General Styles */
+/* General Styling */
 body {
     background-color: var(--background-color);
     color: var(--text-color);
@@ -8,40 +8,48 @@ body {
 }
 
 /* Light Mode Variables */
-@media (prefers-color-scheme: light) {
-    :root {
-        --background-color: #f0f2f6;
-        --text-color: #333333;
-        --form-background: #ffffff;
-        --button-background: #4CAF50;
-        --button-text: white;
-        --card-background: #ffffff;
-        --card-text: #333333;
-    }
+:root {
+    --background-color: #f0f2f6;
+    --text-color: #333333;
+    --form-background: #ffffff;
+    --form-text-color: #333333;
+    --button-background: #4CAF50;
+    --button-text-color: #ffffff;
+    --divider-color: #cccccc;
 }
 
 /* Dark Mode Variables */
 @media (prefers-color-scheme: dark) {
     :root {
         --background-color: #1e1e1e;
-        --text-color: #f0f0f0;
+        --text-color: #ffffff;
         --form-background: #2e2e2e;
-        --button-background: #4CAF50;
-        --button-text: white;
-        --card-background: #2e2e2e;
-        --card-text: #f0f0f0;
+        --form-text-color: #ffffff;
+        --button-background: #6c63ff;
+        --button-text-color: #ffffff;
+        --divider-color: #555555;
     }
 }
 
 /* Style headings */
 h1, h2, h3, h4, h5, h6 {
     color: var(--text-color);
+    font-family: 'Arial', sans-serif;
+}
+
+/* Style forms */
+.stForm {
+    background-color: var(--form-background);
+    color: var(--form-text-color);
+    padding: 20px;
+    border-radius: 10px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
 }
 
 /* Style buttons */
 .stButton > button {
     background-color: var(--button-background);
-    color: var(--button-text);
+    color: var(--button-text-color);
     border: none;
     padding: 10px 24px;
     text-align: center;
@@ -53,25 +61,45 @@ h1, h2, h3, h4, h5, h6 {
     border-radius: 12px;
 }
 
-/* Customize forms */
-.stForm {
-    background-color: var(--form-background);
-    padding: 20px;
-    border-radius: 10px;
-    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+/* Style dividers */
+.stMarkdown hr {
+    border: 1px solid var(--divider-color);
 }
 
-/* Add spacing */
+/* Style paragraphs */
 .stMarkdown p {
     line-height: 1.6;
 }
 
-/* Constrain image and video widths */
-img, video {
-    max-width: 700px; /* Adjust this value as needed */
-    width: 100%;
-    height: auto;
-    display: block;
+/* Restrict image and video sizes */
+.stContainer img, .stContainer video {
+    max-width: 700px;
     margin-left: auto;
     margin-right: auto;
+}
+
+/* Center align content within containers */
+.stContainer {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+/* Additional Styling for Forms */
+.stForm label, .stForm div {
+    color: var(--form-text-color);
+}
+
+/* Adjust radio buttons in dark mode */
+@media (prefers-color-scheme: dark) {
+    .stRadio label {
+        color: var(--form-text-color);
+    }
+}
+
+/* Style text areas */
+.stTextArea textarea {
+    background-color: var(--form-background);
+    color: var(--form-text-color);
+    border: 1px solid var(--divider-color);
 }

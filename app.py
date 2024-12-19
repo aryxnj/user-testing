@@ -6,11 +6,8 @@ from datetime import datetime
 
 # Function to load local CSS
 def local_css(file_name):
-    try:
-        with open(file_name) as f:
-            st.markdown(f'<style>{f.read()}</style>', unsafe_allow_html=True)
-    except FileNotFoundError:
-        st.error(f"CSS file '{file_name}' not found. Please ensure it exists in the project directory.")
+    with open(file_name) as f:
+        st.markdown(f'<style>{f.read()}</style>', unsafe_allow_html=True)
 
 # Set page configuration FIRST
 st.set_page_config(
@@ -78,7 +75,7 @@ def reset_session():
     for key in ['page', 'responses', 'current_input_index', 'current_output_index', 'input_order', 'output_orders', 'total_steps']:
         if key in st.session_state:
             del st.session_state[key]
-    st.rerun()  # Replace with st.rerun()
+    st.rerun()  # Ensure your Streamlit version supports st.rerun()
 
 # Function to initialize database connection
 def init_db():
@@ -140,14 +137,13 @@ def save_responses():
 
 # Welcome Page
 def welcome_page():
-    # Constrain the banner image width using a container
     with st.container():
-        st.image("banner.png", use_container_width=True)  # Ensure 'banner.png' exists in your project directory
-    st.title("🎵 Welcome to the AI Music Assistant User Testing 🎵")
-    st.markdown("""
-        Thank you for participating! In this study, you'll listen to original MIDI files and AI-generated continuations from various models. 
-        Your feedback will help us enhance our AI's musical capabilities.
-    """)
+        st.image("banner.png", use_container_width=True)  # Updated parameter
+        st.title("🎵 Welcome to the AI Music Assistant User Testing 🎵")
+        st.markdown("""
+            Thank you for participating! In this study, you'll listen to original MIDI files and AI-generated continuations from various models. 
+            Your feedback will help us enhance our AI's musical capabilities.
+        """)
 
     with st.form("user_info"):
         st.subheader("Please provide some information about yourself:")
@@ -178,7 +174,7 @@ def welcome_page():
                     'gender': gender
                 })
                 st.session_state.page = 'instructions'
-                st.rerun()  # Replace with st.rerun()
+                st.rerun()  # Ensure your Streamlit version supports st.rerun()
 
 # Instructions Page
 def instructions_page():
@@ -196,7 +192,7 @@ def instructions_page():
     """)
     if st.button("✅ Begin Testing"):
         st.session_state.page = 'testing'
-        st.rerun()  # Replace with st.rerun()
+        st.rerun()  # Ensure your Streamlit version supports st.rerun()
 
 # Testing Page
 def testing_page():
@@ -214,9 +210,8 @@ def testing_page():
         input_name = current_input_file.name  # e.g., 'input-3.mp4'
         st.header(f"🔊 Listening to Input MIDI: {input_name.replace('.mp4', '').replace('-', ' ').capitalize()}")
 
-        # Constrain input video within a container
         with st.container():
-            st.video(str(current_input_file), start_time=0, format="video/mp4", help=None, key=None)
+            st.video(str(current_input_file), format="video/mp4", start_time=0, use_container_width=True)  # Updated parameter
 
         outputs = st.session_state.output_orders[current_input_file.name]
         output_index = st.session_state.current_output_index
@@ -228,9 +223,8 @@ def testing_page():
             output_file = current_output['file']
             st.subheader(f"🎹 AI-Generated Continuation from {model_name.capitalize()} Model")
 
-            # Constrain output video within a container
             with st.container():
-                st.video(str(output_file), start_time=0, format="video/mp4", help=None, key=None)
+                st.video(str(output_file), format="video/mp4", start_time=0, use_container_width=True)  # Updated parameter
 
             with st.form(f"rating_form_{current_input_index}_{output_index}"):
                 # Replace slider with radio buttons for ratings
@@ -254,21 +248,20 @@ def testing_page():
                     st.success("✅ Rating submitted successfully!")
                     # Move to next output
                     st.session_state.current_output_index += 1
-                    st.rerun()  # Replace with st.rerun()
+                    st.rerun()  # Ensure your Streamlit version supports st.rerun()
         else:
             # Move to next input
             st.session_state.current_input_index += 1
             st.session_state.current_output_index = 0
-            st.rerun()  # Replace with st.rerun()
+            st.rerun()  # Ensure your Streamlit version supports st.rerun()
     else:
         st.session_state.page = 'closing'
-        st.rerun()  # Replace with st.rerun()
+        st.rerun()  # Ensure your Streamlit version supports st.rerun()
 
 # Closing Page
 def closing_page():
-    # Constrain the closing banner image width using a container
     with st.container():
-        st.image("closing_banner.png", use_container_width=True)  # Optional: Add a closing banner
+        st.image("closing_banner.png", use_container_width=True)  # Updated parameter
     st.title("✅ Thank You for Your Participation! ✅")
     st.markdown("""
         We appreciate you taking the time to help us improve the AI Music Assistant. 
