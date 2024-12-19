@@ -7,7 +7,7 @@ from datetime import datetime
 # Set page configuration FIRST with centered layout
 st.set_page_config(
     page_title="AI Music Assistant User Testing",
-    layout="centered",
+    layout="centered",  # Changed from "wide" to "centered"
     initial_sidebar_state="collapsed"
 )
 
@@ -143,25 +143,16 @@ def save_feedback():
         st.error(f"Error saving feedback: {e}")
         raise e  # Add this to display full error in Streamlit logs
 
-# Function to scroll to the top with an alert
+# Function to scroll to the top of the page
 def scroll_to_top():
-    st.components.v1.html(
-        f"""
+    st.markdown(
+        """
         <script>
-        setTimeout(function(){{
-            window.scrollTo(0, 0);
-            alert('Scrolling to top');
-        }}, 100);
+        window.scrollTo(0, 0);
         </script>
         """,
-        height=0,
-        width=0,
-        key=f"scroll_{random.randint(0, 100000)}"  # Ensure unique key each time
+        unsafe_allow_html=True,
     )
-
-# Function to handle scrolling after rerun
-def handle_scrolling():
-    scroll_to_top()
 
 # Mapping of input files to their descriptive names (without number of bars)
 input_name_mapping = {
@@ -222,7 +213,7 @@ evaluation_criteria = [
 
 # Welcome Page
 def welcome_page():
-    st.image("banner.png", use_container_width=True)  # Ensure 'banner.png' exists
+    st.image("banner.png", use_container_width=True)  # Ensure 'banner.png' exists in your project directory
     st.title("🎵 Welcome to the AI Music Assistant User Testing 🎵")
     st.markdown("""
         Thank you for participating! In this study, you'll listen to original MIDI files and continuations from various models. 
@@ -260,13 +251,13 @@ def welcome_page():
                     'timestamp': datetime.now().isoformat(),
                     'page': 'welcome',
                     'musical_background': musical_background,
-                    'age': int(age),
+                    'age': age,
                     'gender': gender
                 })
                 st.session_state.page = 'instructions'
-                st.rerun()
-    
-    scroll_to_top()  # Invoke the scroll function after all content
+                st.rerun()  # Ensure your Streamlit version supports st.rerun()
+    scroll_to_top()  # Scroll to top at the start of the page
+
 
 # Instructions Page
 def instructions_page():
@@ -298,12 +289,10 @@ def instructions_page():
             - **Description:** An extended sequence made by repeating a two-bar motif several times.
             - **Reasoning:** Assesses how the model deals with longer context and repetitive patterns. Will it continue with variations, remain consistent, or diverge unexpectedly?
     """)
-
     if st.button("✅ Begin Testing"):
         st.session_state.page = 'testing'
-        st.rerun()
-    
-    scroll_to_top()  # Invoke the scroll function after all content
+        st.rerun()  # Ensure your Streamlit version supports st.rerun()
+    scroll_to_top()  # Scroll to top at the start of the page
 
 # Loading Page
 def loading_page():
@@ -313,8 +302,7 @@ def loading_page():
     # After submission, move to closing page
     st.session_state.page = 'closing'
     st.rerun()
-    
-    scroll_to_top()  # Invoke the scroll function after all content
+    scroll_to_top()  # Scroll to top at the start of the page
 
 # Testing Page
 def testing_page():
@@ -368,7 +356,7 @@ def testing_page():
                         'page': 'testing',
                         'input': current_input_file.name,
                         'output': output_file.name,
-                        'continuation_number': continuation_number,
+                        'continuation_number': continuation_number,  # Using continuation number instead of model name
                         'criterion': criterion['name'],
                         'rating': rating
                     })
@@ -396,12 +384,11 @@ def testing_page():
     else:
         st.session_state.page = 'closing'
         st.rerun()
-    
-    scroll_to_top()  # Invoke the scroll function after all content
+    scroll_to_top()  # Scroll to top at the start of the page
 
 # Closing Page
 def closing_page():
-    st.image("closing_banner.png", use_container_width=True)  # Ensure 'closing_banner.png' exists
+    st.image("closing_banner.png", use_container_width=True)  # Ensure 'closing_banner.png' exists in your project directory
     st.title("✅ Thank You for Your Participation!")
     st.markdown("""
         We appreciate you taking the time to help us improve the AI Music Assistant. 
@@ -421,8 +408,7 @@ def closing_page():
             # Save feedback to the database
             save_feedback()
             st.stop()
-    
-    scroll_to_top()  # Invoke the scroll function after all content
+    scroll_to_top()  # Scroll to top at the start of the page
 
 # Initialize Database Connection
 init_db()
