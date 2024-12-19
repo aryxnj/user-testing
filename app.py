@@ -148,11 +148,14 @@ def scroll_to_top():
     st.markdown(
         """
         <script>
-        window.scrollTo(0, 0);
+        setTimeout(function(){
+            window.scrollTo(0, 0);
+        }, 100);
         </script>
         """,
         unsafe_allow_html=True,
     )
+
 
 # Mapping of input files to their descriptive names (without number of bars)
 input_name_mapping = {
