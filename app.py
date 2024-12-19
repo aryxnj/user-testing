@@ -62,7 +62,73 @@ if 'total_steps' not in st.session_state:
     num_outputs = 4  # Assuming 4 models per input
     st.session_state.total_steps = 2 + (num_inputs * num_outputs) + 1  # welcome, instructions, closing
 
-# Mapping of input files to their descriptive names without number of bars
+# Function to reset the session (for testing purposes)
+def reset_session():
+    for key in ['page', 'responses', 'current_input_index', 'current_output_index', 'input_order', 'output_orders', 'total_steps']:
+        if key in st.session_state:
+            del st.session_state[key]
+    st.rerun()  # Ensure your Streamlit version supports st.rerun()
+
+# Function to initialize database connection
+def init_db():
+    if 'db_engine' not in st.session_state:
+        try:
+            db_url = f"postgresql://{st.secrets['postgres']['user']}:{st.secrets['postgres']['password']}@" \
+                     f"{st.secrets['postgres']['host']}:{st.secrets['postgres']['port']}/{st.secrets['postgres']['database']}"
+            engine = create_engine(db_url, connect_args={"sslmode": st.secrets['postgres']['sslmode']})
+            st.session_state.db_engine = engine
+            # Removed the success message as per instructions
+        except Exception as e:
+            st.error(f"Error connecting to PostgreSQL: {e}")
+
+# Function to save responses to PostgreSQL
+def save_responses():
+    if 'db_engine' not in st.session_state:
+        st.error("Database not initialized.")
+        return
+    engine = st.session_state.db_engine
+    try:
+        with engine.begin() as connection:  # Use engine.begin to auto-commit
+            for response in st.session_state.responses:
+                if response['page'] == 'welcome':
+                    insert_query = text("""
+                        INSERT INTO user_info (timestamp, musical_background, age, gender)
+                        VALUES (:timestamp, :musical_background, :age, :gender)
+                    """)
+                    connection.execute(insert_query, {
+                        'timestamp': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+                        'musical_background': response.get('musical_background', ''),
+                        'age': response.get('age', ''),
+                        'gender': response.get('gender', '')
+                    })
+                elif response['page'] == 'testing':
+                    insert_query = text("""
+                        INSERT INTO user_ratings (timestamp, input_file, output_file, model, criterion, rating)
+                        VALUES (:timestamp, :input_file, :output_file, :model, :criterion, :rating)
+                    """)
+                    connection.execute(insert_query, {
+                        'timestamp': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+                        'input_file': response.get('input', ''),
+                        'output_file': response.get('output', ''),
+                        'model': response.get('model', ''),
+                        'criterion': response.get('criterion', ''),
+                        'rating': response.get('rating', 0)
+                    })
+                elif response['page'] == 'feedback':
+                    insert_query = text("""
+                        INSERT INTO user_feedback (timestamp, feedback)
+                        VALUES (:timestamp, :feedback)
+                    """)
+                    connection.execute(insert_query, {
+                        'timestamp': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+                        'feedback': response.get('feedback', '')
+                    })
+        st.success("Your responses have been recorded. Thank you!")
+    except Exception as e:
+        st.error(f"Error saving responses: {e}")
+        raise e  # Add this to display full error in Streamlit logs
+
+# Mapping of input files to their descriptive names
 input_name_mapping = {
     "input-3.mp4": "Familiar Tonal Snippet",
     "input-4.mp4": "Medium-Length Original Melody",
@@ -119,78 +185,12 @@ evaluation_criteria = [
     }
 ]
 
-# Function to initialize database connection
-def init_db():
-    if 'db_engine' not in st.session_state:
-        try:
-            db_url = f"postgresql://{st.secrets['postgres']['user']}:{st.secrets['postgres']['password']}@" \
-                     f"{st.secrets['postgres']['host']}:{st.secrets['postgres']['port']}/{st.secrets['postgres']['database']}"
-            engine = create_engine(db_url, connect_args={"sslmode": st.secrets['postgres']['sslmode']})
-            st.session_state.db_engine = engine
-            # Removed the success message as per instructions
-        except Exception as e:
-            st.error(f"Error connecting to PostgreSQL: {e}")
-
-# Function to save responses to PostgreSQL
-def save_responses():
-    if 'db_engine' not in st.session_state:
-        st.error("Database not initialized.")
-        return
-    engine = st.session_state.db_engine
-    try:
-        with engine.begin() as connection:  # Use engine.begin to auto-commit
-            for response in st.session_state.responses:
-                if response['page'] == 'welcome':
-                    insert_query = text("""
-                        INSERT INTO user_info (timestamp, musical_background, age, gender)
-                        VALUES (:timestamp, :musical_background, :age, :gender)
-                    """)
-                    connection.execute(insert_query, {
-                        'timestamp': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
-                        'musical_background': response.get('musical_background', ''),
-                        'age': response.get('age', ''),
-                        'gender': response.get('gender', '')
-                    })
-                elif response['page'] == 'testing':
-                    insert_query = text("""
-                        INSERT INTO user_ratings (timestamp, input_file, output_file, continuation_number, criterion, rating)
-                        VALUES (:timestamp, :input_file, :output_file, :continuation_number, :criterion, :rating)
-                    """)
-                    connection.execute(insert_query, {
-                        'timestamp': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
-                        'input_file': response.get('input', ''),
-                        'output_file': response.get('output', ''),
-                        'continuation_number': response.get('continuation_number', 0),
-                        'criterion': response.get('criterion', ''),
-                        'rating': response.get('rating', 0)
-                    })
-                elif response['page'] == 'feedback':
-                    insert_query = text("""
-                        INSERT INTO user_feedback (timestamp, feedback)
-                        VALUES (:timestamp, :feedback)
-                    """)
-                    connection.execute(insert_query, {
-                        'timestamp': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
-                        'feedback': response.get('feedback', '')
-                    })
-        st.success("Your responses have been recorded. Thank you!")
-    except Exception as e:
-        st.error(f"Error saving responses: {e}")
-        raise e  # Add this to display full error in Streamlit logs
-
-# Function to reset the session (for testing purposes)
-def reset_session():
-    for key in ['page', 'responses', 'current_input_index', 'current_output_index', 'input_order', 'output_orders', 'total_steps']:
-        if key in st.session_state:
-            del st.session_state[key]
-    st.rerun()  # Ensure your Streamlit version supports st.rerun()
-
 # Welcome Page
 def welcome_page():
     st.image("banner.png", use_container_width=True)  # Ensure 'banner.png' exists in your project directory
     st.title("🎵 Welcome to the AI Music Assistant User Testing 🎵")
     st.markdown("""
-        Thank you for participating! In this study, you'll listen to original MIDI files and AI-generated continuations from various models. 
+        Thank you for participating! In this study, you'll listen to original MIDI files and their continuations generated by different models. 
         Your feedback will help us enhance our AI's musical capabilities.
     """)
 
@@ -200,23 +200,23 @@ def welcome_page():
         with col1:
             musical_background = st.selectbox(
                 "🎹 What is your musical background?",
-                options=["Select", "Beginner", "Intermediate", "Advanced"],
-                index=0
+                options=["Select an option", "Beginner", "Intermediate", "Advanced"]
             )
         with col2:
             age = st.text_input("🎂 Age:", "")
         gender = st.selectbox(
             "🧑 Gender:",
-            options=["Select", "Male", "Female", "Non-binary", "Other"],
-            index=0
+            options=["Select an option", "Male", "Female", "Non-binary", "Other"]
         )
         submitted = st.form_submit_button("🚀 Start Testing")
         if submitted:
-            # Validate required fields
-            if musical_background == "Select":
+            # Validate musical_background
+            if musical_background == "Select an option":
                 st.error("Please select your musical background.")
-            elif gender == "Select":
+            # Validate gender
+            elif gender == "Select an option":
                 st.error("Please select your gender.")
+            # Validate age
             elif not age.isdigit():
                 st.error("Please enter a valid age.")
             else:
@@ -237,7 +237,7 @@ def instructions_page():
     st.markdown("""
         ### Scoring Method
 
-        - For each continuation of each test melody, assign a score of **1 to 5** for each criterion.
+        - For each model’s generated continuation of each test melody, assign a score of **1 to 5** for each criterion.
         - **Total the scores** for a composite result, or consider different weights for each criterion depending on the experiment’s priorities.
         - **Compare results** across models, parameter settings, and input melodies to draw conclusions about which configurations yield the most coherent, appealing, and stylistically appropriate continuations.
 
@@ -294,45 +294,42 @@ def testing_page():
             st.subheader(f"🎹 Continuation {continuation_number}")
             st.video(str(output_file))
 
-            # Unique key for the form to prevent duplication
-            form_key = f"rating_form_{current_input_index}_{output_index}"
-            if f"submitted_{form_key}" not in st.session_state:
-                with st.form(form_key):
-                    st.markdown("**Please rate the following criteria:**")
-                    for criterion in evaluation_criteria:
-                        st.markdown(f"**{criterion['name']}**")
-                        st.markdown(f"{criterion['description']}")
-                        rating = st.radio(
-                            f"Rate {criterion['name']}:",
-                            options=[1, 2, 3, 4, 5],
-                            index=2,
-                            key=f"{current_input_index}_{output_index}_{criterion['name']}"
-                        )
-                        # Store each criterion rating temporarily
-                        if 'current_ratings' not in st.session_state:
-                            st.session_state.current_ratings = {}
-                        st.session_state.current_ratings[criterion['name']] = rating
-                    submitted = st.form_submit_button("Submit Rating")
-                    if submitted:
-                        # Save all ratings at once
-                        for criterion in evaluation_criteria:
-                            st.session_state.responses.append({
-                                'timestamp': datetime.now().isoformat(),
-                                'page': 'testing',
-                                'input': current_input_file.name,
-                                'output': output_file.name,
-                                'continuation_number': continuation_number,  # Using continuation number instead of model name
-                                'criterion': criterion['name'],
-                                'rating': st.session_state.current_ratings.get(criterion['name'], 3)
-                            })
-                        st.session_state.page = 'testing_next'
-                        st.session_state.current_output_index += 1
-                        st.session_state.submitted_rating = True
-                        st.rerun()  # Ensure your Streamlit version supports st.rerun()
+            with st.form(f"rating_form_{current_input_index}_{output_index}"):
+                st.markdown("**Please rate the following criteria:**")
+                ratings = {}
+                for criterion in evaluation_criteria:
+                    st.markdown(f"**{criterion['name']}**")
+                    st.write(criterion['description'])
+                    st.markdown("**Scoring:**")
+                    st.markdown(f"- **1:** {criterion['scoring']['1']}")
+                    st.markdown(f"- **3:** {criterion['scoring']['3']}")
+                    st.markdown(f"- **5:** {criterion['scoring']['5']}")
+                    rating = st.radio(
+                        f"{criterion['name']}:",
+                        options=[1, 2, 3, 4, 5],
+                        index=2,  # Default to 3
+                        key=f"{current_input_index}_{output_index}_{criterion['name']}"
+                    )
+                    ratings[criterion['name']] = rating
+                    st.markdown("---")  # Divider between criteria
 
-            # Handle post-submission to prevent duplicate entries
-            elif f"submitted_{form_key}" in st.session_state:
-                st.success("✅ Rating submitted successfully!")
+                submitted = st.form_submit_button("Submit Rating")
+                if submitted:
+                    # Save each criterion rating
+                    for name, score in ratings.items():
+                        st.session_state.responses.append({
+                            'timestamp': datetime.now().isoformat(),
+                            'page': 'testing',
+                            'input': current_input_file.name,
+                            'output': output_file.name,
+                            'model': continuation_number,  # Using continuation number instead of model name
+                            'criterion': name,
+                            'rating': score
+                        })
+                    st.success("✅ Rating submitted successfully!")
+                    # Move to next output
+                    st.session_state.current_output_index += 1
+                    st.rerun()  # Ensure your Streamlit version supports st.rerun()
         else:
             # Move to next input
             st.session_state.current_input_index += 1
