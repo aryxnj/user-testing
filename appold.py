@@ -71,6 +71,7 @@ def init_db():
                      f"{st.secrets['postgres']['host']}:{st.secrets['postgres']['port']}/{st.secrets['postgres']['database']}"
             engine = create_engine(db_url, connect_args={"sslmode": st.secrets['postgres']['sslmode']})
             st.session_state.db_engine = engine
+            st.success("Database connection established successfully.")
         except Exception as e:
             st.error(f"Error connecting to PostgreSQL: {e}")
 
@@ -81,28 +82,26 @@ def save_responses():
         return
     engine = st.session_state.db_engine
     try:
-        with engine.connect() as connection:
+        with engine.begin() as connection:  # Use engine.begin to auto-commit
             for response in st.session_state.responses:
                 if response['page'] == 'welcome':
-                    # Insert user info
                     insert_query = text("""
                         INSERT INTO user_info (timestamp, musical_background, age, gender)
                         VALUES (:timestamp, :musical_background, :age, :gender)
                     """)
                     connection.execute(insert_query, {
-                        'timestamp': datetime.fromisoformat(response.get('timestamp', '')).strftime('%Y-%m-%d %H:%M:%S'),
+                        'timestamp': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
                         'musical_background': response.get('musical_background', ''),
                         'age': response.get('age', ''),
                         'gender': response.get('gender', '')
                     })
                 elif response['page'] == 'testing':
-                    # Insert user ratings
                     insert_query = text("""
                         INSERT INTO user_ratings (timestamp, input_file, output_file, model, rating)
                         VALUES (:timestamp, :input_file, :output_file, :model, :rating)
                     """)
                     connection.execute(insert_query, {
-                        'timestamp': datetime.fromisoformat(response.get('timestamp', '')).strftime('%Y-%m-%d %H:%M:%S'),
+                        'timestamp': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
                         'input_file': response.get('input', ''),
                         'output_file': response.get('output', ''),
                         'model': response.get('model', ''),
@@ -111,6 +110,31 @@ def save_responses():
         st.success("Your responses have been recorded. Thank you!")
     except Exception as e:
         st.error(f"Error saving responses: {e}")
+        raise e  # Add this to display full error in Streamlit logs
+
+        
+def test_db_connection():
+    if 'db_engine' not in st.session_state:
+        st.error("Database not initialized.")
+        return
+    engine = st.session_state.db_engine
+    try:
+        with engine.connect() as connection:
+            # Insert a test row into user_info
+            insert_query = text("""
+                INSERT INTO user_info (timestamp, musical_background, age, gender)
+                VALUES (:timestamp, :musical_background, :age, :gender)
+            """)
+            connection.execute(insert_query, {
+                'timestamp': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+                'musical_background': 'Test Background',
+                'age': '99',
+                'gender': 'Test Gender'
+            })
+            st.success("Test row inserted successfully into user_info.")
+    except Exception as e:
+        st.error(f"Error during test insert: {e}")
+
 
 # Welcome Page
 def welcome_page():
@@ -241,5 +265,11 @@ elif st.session_state.page == 'closing':
 else:
     st.error("Unknown page!")
 
-# Optionally, display the responses for debugging purposes
-# st.write(st.session_state.responses)
+# Debug Section: Show collected responses (for troubleshooting)
+if st.checkbox("Show Collected Responses"):
+    st.write(st.session_state.responses)
+
+# Optionally, run the database connection test
+if st.checkbox("Run Database Connection Test"):
+    test_db_connection()
+

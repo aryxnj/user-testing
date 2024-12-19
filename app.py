@@ -3,6 +3,19 @@ from sqlalchemy import create_engine, text
 from pathlib import Path
 import random
 from datetime import datetime
+import base64
+
+# Optional: If using Streamlit-Extras for star ratings, uncomment the following lines
+# !pip install streamlit-extras
+# from streamlit_extras.star_rating import star_rating
+
+# Function to load local CSS
+def local_css(file_name):
+    with open(file_name) as f:
+        st.markdown(f'<style>{f.read()}</style>', unsafe_allow_html=True)
+
+# Apply custom CSS
+local_css("styles.css")  # Ensure you have a styles.css file in your project directory
 
 # Set page configuration
 st.set_page_config(
@@ -56,9 +69,15 @@ if 'output_orders' not in st.session_state:
         output_orders[input_file.name] = outputs
     st.session_state.output_orders = output_orders
 
+if 'total_steps' not in st.session_state:
+    # Calculate total steps: welcome + instructions + (inputs * outputs) + closing
+    num_inputs = len(st.session_state.input_order)
+    num_outputs = 4  # Assuming 4 models per input
+    st.session_state.total_steps = 2 + (num_inputs * num_outputs) + 1  # welcome, instructions, closing
+
 # Function to reset the session (for testing purposes)
 def reset_session():
-    for key in ['page', 'responses', 'current_input_index', 'current_output_index', 'input_order', 'output_orders']:
+    for key in ['page', 'responses', 'current_input_index', 'current_output_index', 'input_order', 'output_orders', 'total_steps']:
         if key in st.session_state:
             del st.session_state[key]
     st.rerun()
@@ -71,7 +90,7 @@ def init_db():
                      f"{st.secrets['postgres']['host']}:{st.secrets['postgres']['port']}/{st.secrets['postgres']['database']}"
             engine = create_engine(db_url, connect_args={"sslmode": st.secrets['postgres']['sslmode']})
             st.session_state.db_engine = engine
-            st.success("Database connection established successfully.")
+            # Removed the success message as per instructions
         except Exception as e:
             st.error(f"Error connecting to PostgreSQL: {e}")
 
@@ -107,72 +126,64 @@ def save_responses():
                         'model': response.get('model', ''),
                         'rating': response.get('rating', 0)
                     })
+                elif response['page'] == 'feedback':
+                    insert_query = text("""
+                        INSERT INTO user_feedback (timestamp, feedback)
+                        VALUES (:timestamp, :feedback)
+                    """)
+                    connection.execute(insert_query, {
+                        'timestamp': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+                        'feedback': response.get('feedback', '')
+                    })
         st.success("Your responses have been recorded. Thank you!")
     except Exception as e:
         st.error(f"Error saving responses: {e}")
         raise e  # Add this to display full error in Streamlit logs
 
-        
-def test_db_connection():
-    if 'db_engine' not in st.session_state:
-        st.error("Database not initialized.")
-        return
-    engine = st.session_state.db_engine
-    try:
-        with engine.connect() as connection:
-            # Insert a test row into user_info
-            insert_query = text("""
-                INSERT INTO user_info (timestamp, musical_background, age, gender)
-                VALUES (:timestamp, :musical_background, :age, :gender)
-            """)
-            connection.execute(insert_query, {
-                'timestamp': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
-                'musical_background': 'Test Background',
-                'age': '99',
-                'gender': 'Test Gender'
-            })
-            st.success("Test row inserted successfully into user_info.")
-    except Exception as e:
-        st.error(f"Error during test insert: {e}")
-
-
 # Welcome Page
 def welcome_page():
+    st.image("banner.png", use_column_width=True)  # Ensure 'banner.png' exists in your project directory
     st.title("🎵 Welcome to the AI Music Assistant User Testing 🎵")
-    st.write("""
-        Thank you for participating in our user testing for the AI Music Assistant. 
-        In this study, you'll listen to original MIDI files and their AI-generated continuations from various models. 
-        Your feedback will help us improve our models and provide better musical experiences.
+    st.markdown("""
+        Thank you for participating! In this study, you'll listen to original MIDI files and AI-generated continuations from various models. 
+        Your feedback will help us enhance our AI's musical capabilities.
     """)
-    
+
     with st.form("user_info"):
         st.subheader("Please provide some information about yourself:")
-        musical_background = st.selectbox(
-            "What is your musical background?",
-            options=["Beginner", "Intermediate", "Advanced"]
-        )
-        age = st.text_input("Age:", "")
+        col1, col2 = st.columns(2)
+        with col1:
+            musical_background = st.selectbox(
+                "🎹 What is your musical background?",
+                options=["Beginner", "Intermediate", "Advanced"]
+            )
+        with col2:
+            age = st.text_input("🎂 Age:", "")
         gender = st.selectbox(
-            "Gender:",
+            "🧑 Gender:",
             options=["Prefer not to say", "Male", "Female", "Non-binary", "Other"]
         )
-        submitted = st.form_submit_button("Start Testing")
+        submitted = st.form_submit_button("🚀 Start Testing")
         if submitted:
-            # Save user info with timestamp
-            st.session_state.responses.append({
-                'timestamp': datetime.now().isoformat(),
-                'page': 'welcome',
-                'musical_background': musical_background,
-                'age': age,
-                'gender': gender
-            })
-            st.session_state.page = 'instructions'
-            st.rerun()
+            # Validate age input
+            if not age.isdigit() or not (5 < int(age) < 120):
+                st.error("Please enter a valid age between 6 and 119.")
+            else:
+                # Save user info with timestamp
+                st.session_state.responses.append({
+                    'timestamp': datetime.now().isoformat(),
+                    'page': 'welcome',
+                    'musical_background': musical_background,
+                    'age': age,
+                    'gender': gender
+                })
+                st.session_state.page = 'instructions'
+                st.experimental_rerun()
 
 # Instructions Page
 def instructions_page():
     st.title("📋 Testing Protocol Instructions 📋")
-    st.write("""
+    st.markdown("""
         Here's how the testing protocol will work:
         
         1. **Listen to the Input MIDI:** You'll first hear an original MIDI file. This is the piece that the AI models will continue.
@@ -183,36 +194,45 @@ def instructions_page():
         
         **Note:** The order of the MIDI files and the AI model outputs has been randomized to ensure unbiased feedback.
     """)
-    if st.button("Begin Testing"):
+    if st.button("✅ Begin Testing"):
         st.session_state.page = 'testing'
-        st.rerun()
+        st.experimental_rerun()
 
 # Testing Page
 def testing_page():
     input_files = st.session_state.input_order
     current_input_index = st.session_state.current_input_index
-    
+
+    # Calculate current step for progress bar
+    current_step = 2 + (current_input_index * 4) + st.session_state.current_output_index  # 2 for welcome and instructions
+    progress = current_step / st.session_state.total_steps
+    st.progress(progress)
+    st.sidebar.markdown(f"**Progress:** Step {current_step} of {st.session_state.total_steps}")
+
     if current_input_index < len(input_files):
         current_input_file = input_files[current_input_index]
         input_name = current_input_file.name  # e.g., 'input-3.mp4'
         st.header(f"🔊 Listening to Input MIDI: {input_name.replace('.mp4', '').replace('-', ' ').capitalize()}")
         st.video(str(current_input_file))
-        
+
         outputs = st.session_state.output_orders[current_input_file.name]
         output_index = st.session_state.current_output_index
         total_outputs = len(outputs)
-        
+
         if output_index < total_outputs:
             current_output = outputs[output_index]
             model_name = current_output['model']
             output_file = current_output['file']
             st.subheader(f"🎹 AI-Generated Continuation from {model_name.capitalize()} Model")
             st.video(str(output_file))
-            
+
             with st.form(f"rating_form_{current_input_index}_{output_index}"):
-                rating = st.slider(
-                    f"Rate the continuation from {model_name.capitalize()} Model (1 - Poor, 5 - Excellent):",
-                    min_value=1, max_value=5, value=3, step=1
+                # Replace slider with radio buttons for ratings
+                rating = st.radio(
+                    f"Rate the continuation from the **{model_name.capitalize()}** Model:",
+                    options=[1, 2, 3, 4, 5],
+                    index=2,
+                    format_func=lambda x: "⭐" * x
                 )
                 submitted = st.form_submit_button("Submit Rating")
                 if submitted:
@@ -225,30 +245,40 @@ def testing_page():
                         'model': model_name,
                         'rating': rating
                     })
+                    st.success("✅ Rating submitted successfully!")
                     # Move to next output
                     st.session_state.current_output_index += 1
-                    st.rerun()
+                    st.experimental_rerun()
         else:
             # Move to next input
             st.session_state.current_input_index += 1
             st.session_state.current_output_index = 0
-            st.rerun()
+            st.experimental_rerun()
     else:
         st.session_state.page = 'closing'
-        st.rerun()
+        st.experimental_rerun()
 
 # Closing Page
 def closing_page():
+    st.image("closing_banner.png", use_column_width=True)  # Optional: Add a closing banner
     st.title("✅ Thank You for Your Participation! ✅")
-    st.write("""
+    st.markdown("""
         We appreciate you taking the time to help us improve the AI Music Assistant. 
         Your feedback is invaluable and will contribute to the development of better musical tools.
     """)
-    if st.button("Submit Responses and Exit"):
-        save_responses()
-        st.stop()
-    if st.button("Restart"):
-        reset_session()
+
+    with st.form("additional_feedback"):
+        feedback = st.text_area("📝 Do you have any additional comments or suggestions?", "")
+        submitted = st.form_submit_button("📤 Submit and Exit")
+        if submitted:
+            if feedback:
+                st.session_state.responses.append({
+                    'timestamp': datetime.now().isoformat(),
+                    'page': 'feedback',
+                    'feedback': feedback
+                })
+            save_responses()
+            st.stop()
 
 # Initialize Database Connection
 init_db()
@@ -265,11 +295,4 @@ elif st.session_state.page == 'closing':
 else:
     st.error("Unknown page!")
 
-# Debug Section: Show collected responses (for troubleshooting)
-if st.checkbox("Show Collected Responses"):
-    st.write(st.session_state.responses)
-
-# Optionally, run the database connection test
-if st.checkbox("Run Database Connection Test"):
-    test_db_connection()
-
+# Optionally, remove the debug section as per instructions
