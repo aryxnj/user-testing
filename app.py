@@ -57,17 +57,17 @@ if 'output_orders' not in st.session_state:
     st.session_state.output_orders = output_orders
 
 if 'total_steps' not in st.session_state:
-    # Calculate total steps: welcome + instructions + (inputs * outputs) + closing
+    # Calculate total steps: welcome + instructions + (inputs * outputs) + loading + closing
     num_inputs = len(st.session_state.input_order)
     num_outputs = 4  # Assuming 4 models per input
-    st.session_state.total_steps = 2 + (num_inputs * num_outputs) + 1  # welcome, instructions, closing
+    st.session_state.total_steps = 2 + (num_inputs * num_outputs) + 2  # welcome, instructions, loading, closing
 
 # Function to reset the session (for testing purposes)
 def reset_session():
     for key in ['page', 'responses', 'current_input_index', 'current_output_index', 'input_order', 'output_orders', 'total_steps', 'submitting']:
         if key in st.session_state:
             del st.session_state[key]
-    st.rerun()
+    st.rerun()  # Use st.rerun() as per latest Streamlit versions
 
 # Function to initialize database connection
 def init_db():
@@ -257,7 +257,7 @@ def welcome_page():
                     'gender': gender
                 })
                 st.session_state.page = 'instructions'
-                st.rerun()
+                st.rerun()  # Use st.rerun() as per latest Streamlit versions
 
 # Instructions Page
 def instructions_page():
@@ -292,7 +292,7 @@ def instructions_page():
     """)
     if st.button("✅ Begin Testing"):
         st.session_state.page = 'testing'
-        st.rerun()
+        st.rerun()  # Use st.rerun() as per latest Streamlit versions
 
 # Loading Page
 def loading_page():
