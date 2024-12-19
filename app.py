@@ -4,23 +4,12 @@ from pathlib import Path
 import random
 from datetime import datetime
 
-# Function to load local CSS
-def local_css(file_name):
-    try:
-        with open(file_name) as f:
-            st.markdown(f'<style>{f.read()}</style>', unsafe_allow_html=True)
-    except FileNotFoundError:
-        st.error(f"CSS file '{file_name}' not found. Please ensure it exists in the project directory.")
-
-# Set page configuration FIRST
+# Set page configuration FIRST with centered layout
 st.set_page_config(
     page_title="AI Music Assistant User Testing",
-    layout="wide",
+    layout="centered",  # Changed from "wide" to "centered"
     initial_sidebar_state="collapsed"
 )
-
-# Apply custom CSS AFTER set_page_config
-local_css("styles.css")  # Ensure you have a styles.css file in your project directory
 
 # Initialize session state variables
 if 'page' not in st.session_state:
@@ -176,7 +165,7 @@ def welcome_page():
                     'gender': gender
                 })
                 st.session_state.page = 'instructions'
-                st.rerun()  # Updated parameter
+                st.rerun()  # Ensure your Streamlit version supports st.rerun()
 
 # Instructions Page
 def instructions_page():
@@ -194,7 +183,7 @@ def instructions_page():
     """)
     if st.button("✅ Begin Testing"):
         st.session_state.page = 'testing'
-        st.rerun()  # Updated parameter
+        st.rerun()  # Ensure your Streamlit version supports st.rerun()
 
 # Testing Page
 def testing_page():
@@ -246,15 +235,15 @@ def testing_page():
                     st.success("✅ Rating submitted successfully!")
                     # Move to next output
                     st.session_state.current_output_index += 1
-                    st.rerun()  # Updated parameter
+                    st.rerun()  # Ensure your Streamlit version supports st.rerun()
         else:
             # Move to next input
             st.session_state.current_input_index += 1
             st.session_state.current_output_index = 0
-            st.rerun()  # Updated parameter
+            st.rerun()  # Ensure your Streamlit version supports st.rerun()
     else:
         st.session_state.page = 'closing'
-        st.rerun()  # Updated parameter
+        st.rerun()  # Ensure your Streamlit version supports st.rerun()
 
 # Closing Page
 def closing_page():
