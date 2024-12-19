@@ -4,11 +4,13 @@ from pathlib import Path
 import random
 from datetime import datetime
 
-
 # Function to load local CSS
 def local_css(file_name):
-    with open(file_name) as f:
-        st.markdown(f'<style>{f.read()}</style>', unsafe_allow_html=True)
+    try:
+        with open(file_name) as f:
+            st.markdown(f'<style>{f.read()}</style>', unsafe_allow_html=True)
+    except FileNotFoundError:
+        st.error(f"CSS file '{file_name}' not found. Please ensure it exists in the project directory.")
 
 # Set page configuration FIRST
 st.set_page_config(
@@ -138,7 +140,9 @@ def save_responses():
 
 # Welcome Page
 def welcome_page():
-    st.image("banner.png", use_column_width=True)  # Ensure 'banner.png' exists in your project directory
+    # Constrain the banner image width using a container
+    with st.container():
+        st.image("banner.png", use_container_width=True)  # Ensure 'banner.png' exists in your project directory
     st.title("🎵 Welcome to the AI Music Assistant User Testing 🎵")
     st.markdown("""
         Thank you for participating! In this study, you'll listen to original MIDI files and AI-generated continuations from various models. 
@@ -209,7 +213,10 @@ def testing_page():
         current_input_file = input_files[current_input_index]
         input_name = current_input_file.name  # e.g., 'input-3.mp4'
         st.header(f"🔊 Listening to Input MIDI: {input_name.replace('.mp4', '').replace('-', ' ').capitalize()}")
-        st.video(str(current_input_file))
+
+        # Constrain input video within a container
+        with st.container():
+            st.video(str(current_input_file), start_time=0, format="video/mp4", help=None, key=None)
 
         outputs = st.session_state.output_orders[current_input_file.name]
         output_index = st.session_state.current_output_index
@@ -220,7 +227,10 @@ def testing_page():
             model_name = current_output['model']
             output_file = current_output['file']
             st.subheader(f"🎹 AI-Generated Continuation from {model_name.capitalize()} Model")
-            st.video(str(output_file))
+
+            # Constrain output video within a container
+            with st.container():
+                st.video(str(output_file), start_time=0, format="video/mp4", help=None, key=None)
 
             with st.form(f"rating_form_{current_input_index}_{output_index}"):
                 # Replace slider with radio buttons for ratings
@@ -256,7 +266,9 @@ def testing_page():
 
 # Closing Page
 def closing_page():
-    st.image("closing_banner.png", use_column_width=True)  # Optional: Add a closing banner
+    # Constrain the closing banner image width using a container
+    with st.container():
+        st.image("closing_banner.png", use_container_width=True)  # Optional: Add a closing banner
     st.title("✅ Thank You for Your Participation! ✅")
     st.markdown("""
         We appreciate you taking the time to help us improve the AI Music Assistant. 
