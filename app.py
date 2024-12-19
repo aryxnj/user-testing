@@ -3,26 +3,22 @@ from sqlalchemy import create_engine, text
 from pathlib import Path
 import random
 from datetime import datetime
-import base64
 
-# Optional: If using Streamlit-Extras for star ratings, uncomment the following lines
-# !pip install streamlit-extras
-# from streamlit_extras.star_rating import star_rating
 
 # Function to load local CSS
 def local_css(file_name):
     with open(file_name) as f:
         st.markdown(f'<style>{f.read()}</style>', unsafe_allow_html=True)
 
-# Apply custom CSS
-local_css("styles.css")  # Ensure you have a styles.css file in your project directory
-
-# Set page configuration
+# Set page configuration FIRST
 st.set_page_config(
     page_title="AI Music Assistant User Testing",
     layout="wide",
     initial_sidebar_state="collapsed"
 )
+
+# Apply custom CSS AFTER set_page_config
+local_css("styles.css")  # Ensure you have a styles.css file in your project directory
 
 # Initialize session state variables
 if 'page' not in st.session_state:
@@ -80,7 +76,7 @@ def reset_session():
     for key in ['page', 'responses', 'current_input_index', 'current_output_index', 'input_order', 'output_orders', 'total_steps']:
         if key in st.session_state:
             del st.session_state[key]
-    st.rerun()
+    st.rerun()  # Replace with st.rerun()
 
 # Function to initialize database connection
 def init_db():
@@ -178,7 +174,7 @@ def welcome_page():
                     'gender': gender
                 })
                 st.session_state.page = 'instructions'
-                st.rerun()
+                st.rerun()  # Replace with st.rerun()
 
 # Instructions Page
 def instructions_page():
@@ -196,7 +192,7 @@ def instructions_page():
     """)
     if st.button("✅ Begin Testing"):
         st.session_state.page = 'testing'
-        st.rerun()
+        st.rerun()  # Replace with st.rerun()
 
 # Testing Page
 def testing_page():
@@ -248,15 +244,15 @@ def testing_page():
                     st.success("✅ Rating submitted successfully!")
                     # Move to next output
                     st.session_state.current_output_index += 1
-                    st.rerun()
+                    st.rerun()  # Replace with st.rerun()
         else:
             # Move to next input
             st.session_state.current_input_index += 1
             st.session_state.current_output_index = 0
-            st.rerun()
+            st.rerun()  # Replace with st.rerun()
     else:
         st.session_state.page = 'closing'
-        st.rerun()
+        st.rerun()  # Replace with st.rerun()
 
 # Closing Page
 def closing_page():
@@ -294,5 +290,3 @@ elif st.session_state.page == 'closing':
     closing_page()
 else:
     st.error("Unknown page!")
-
-# Optionally, remove the debug section as per instructions
