@@ -143,19 +143,25 @@ def save_feedback():
         st.error(f"Error saving feedback: {e}")
         raise e  # Add this to display full error in Streamlit logs
 
-# Function to scroll to the top of the page with delay
+# Function to scroll to the top with an alert
 def scroll_to_top():
     st.components.v1.html(
-        """
+        f"""
         <script>
-        setTimeout(function(){
+        setTimeout(function(){{
             window.scrollTo(0, 0);
-        }, 100);
+            alert('Scrolling to top');
+        }}, 100);
         </script>
         """,
         height=0,
         width=0,
+        key=f"scroll_{random.randint(0, 100000)}"  # Ensure unique key each time
     )
+
+# Function to handle scrolling after rerun
+def handle_scrolling():
+    scroll_to_top()
 
 # Mapping of input files to their descriptive names (without number of bars)
 input_name_mapping = {
@@ -216,7 +222,7 @@ evaluation_criteria = [
 
 # Welcome Page
 def welcome_page():
-    st.image("banner.png", use_container_width=True)  # Ensure 'banner.png' exists in your project directory
+    st.image("banner.png", use_container_width=True)  # Ensure 'banner.png' exists
     st.title("🎵 Welcome to the AI Music Assistant User Testing 🎵")
     st.markdown("""
         Thank you for participating! In this study, you'll listen to original MIDI files and continuations from various models. 
@@ -258,7 +264,9 @@ def welcome_page():
                     'gender': gender
                 })
                 st.session_state.page = 'instructions'
-                st.rerun()  # Ensure your Streamlit version supports st.rerun()
+                st.rerun()
+    
+    scroll_to_top()  # Invoke the scroll function after all content
 
 # Instructions Page
 def instructions_page():
@@ -290,9 +298,12 @@ def instructions_page():
             - **Description:** An extended sequence made by repeating a two-bar motif several times.
             - **Reasoning:** Assesses how the model deals with longer context and repetitive patterns. Will it continue with variations, remain consistent, or diverge unexpectedly?
     """)
+
     if st.button("✅ Begin Testing"):
         st.session_state.page = 'testing'
-        st.rerun()  # Ensure your Streamlit version supports st.rerun()
+        st.rerun()
+    
+    scroll_to_top()  # Invoke the scroll function after all content
 
 # Loading Page
 def loading_page():
@@ -302,6 +313,8 @@ def loading_page():
     # After submission, move to closing page
     st.session_state.page = 'closing'
     st.rerun()
+    
+    scroll_to_top()  # Invoke the scroll function after all content
 
 # Testing Page
 def testing_page():
@@ -355,7 +368,7 @@ def testing_page():
                         'page': 'testing',
                         'input': current_input_file.name,
                         'output': output_file.name,
-                        'continuation_number': continuation_number,  # Using continuation number instead of model name
+                        'continuation_number': continuation_number,
                         'criterion': criterion['name'],
                         'rating': rating
                     })
@@ -383,10 +396,12 @@ def testing_page():
     else:
         st.session_state.page = 'closing'
         st.rerun()
+    
+    scroll_to_top()  # Invoke the scroll function after all content
 
 # Closing Page
 def closing_page():
-    st.image("closing_banner.png", use_container_width=True)  # Ensure 'closing_banner.png' exists in your project directory
+    st.image("closing_banner.png", use_container_width=True)  # Ensure 'closing_banner.png' exists
     st.title("✅ Thank You for Your Participation!")
     st.markdown("""
         We appreciate you taking the time to help us improve the AI Music Assistant. 
@@ -406,39 +421,22 @@ def closing_page():
             # Save feedback to the database
             save_feedback()
             st.stop()
+    
+    scroll_to_top()  # Invoke the scroll function after all content
 
 # Initialize Database Connection
 init_db()
 
-# Function to handle scrolling after rerun
-def handle_scrolling():
-    st.components.v1.html(
-        """
-        <script>
-        setTimeout(function(){
-            window.scrollTo(0, 0);
-        }, 100);
-        </script>
-        """,
-        height=0,
-        width=0,
-    )
-
 # Navigation
 if st.session_state.page == 'welcome':
     welcome_page()
-    handle_scrolling()
 elif st.session_state.page == 'instructions':
     instructions_page()
-    handle_scrolling()
 elif st.session_state.page == 'testing':
     testing_page()
-    handle_scrolling()
 elif st.session_state.page == 'loading':
     loading_page()
-    handle_scrolling()
 elif st.session_state.page == 'closing':
     closing_page()
-    handle_scrolling()
 else:
     st.error("Unknown page!")
