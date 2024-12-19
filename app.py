@@ -308,7 +308,6 @@ def loading_page():
 
 # Testing Page
 def testing_page():
-    scroll_to_top()  # Scroll to top at the start of the page
     input_files = st.session_state.input_order
     current_input_index = st.session_state.current_input_index
 
@@ -317,6 +316,7 @@ def testing_page():
     progress = current_step / st.session_state.total_steps
     st.progress(progress)
     st.sidebar.markdown(f"**Progress:** Step {current_step} of {st.session_state.total_steps}")
+    scroll_to_top()  # Scroll to top at the start of the page
 
     if current_input_index < len(input_files):
         current_input_file = input_files[current_input_index]
