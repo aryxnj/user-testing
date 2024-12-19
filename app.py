@@ -62,19 +62,12 @@ if 'total_steps' not in st.session_state:
     num_outputs = 4  # Assuming 4 models per input
     st.session_state.total_steps = 2 + (num_inputs * num_outputs) + 1  # welcome, instructions, closing
 
-# Initialize submission flags
-if 'submitting' not in st.session_state:
-    st.session_state.submitting = False
-
-if 'save_done' not in st.session_state:
-    st.session_state.save_done = False
-
 # Function to reset the session (for testing purposes)
 def reset_session():
-    for key in ['page', 'responses', 'current_input_index', 'current_output_index', 'input_order', 'output_orders', 'total_steps', 'submitting', 'save_done']:
+    for key in ['page', 'responses', 'current_input_index', 'current_output_index', 'input_order', 'output_orders', 'total_steps', 'submitting']:
         if key in st.session_state:
             del st.session_state[key]
-    st.rerun()  # Ensure your Streamlit version supports st.rerun()
+    st.experimental_rerun()
 
 # Function to initialize database connection
 def init_db():
@@ -124,7 +117,6 @@ def save_ratings():
                         'criterion': response.get('criterion', ''),
                         'rating': response.get('rating', 0)
                     })
-        st.session_state.save_done = True
     except Exception as e:
         st.error(f"Error saving ratings: {e}")
         raise e  # Add this to display full error in Streamlit logs
@@ -147,7 +139,6 @@ def save_feedback():
                         'timestamp': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
                         'feedback': response.get('feedback', '')
                     })
-        st.session_state.save_done = True
     except Exception as e:
         st.error(f"Error saving feedback: {e}")
         raise e  # Add this to display full error in Streamlit logs
@@ -253,9 +244,7 @@ def welcome_page():
                     'gender': gender
                 })
                 st.session_state.page = 'instructions'
-                st.session_state.submitting = False
-                st.session_state.save_done = False
-                st.rerun()  # Ensure your Streamlit version supports st.rerun()
+                st.experimental_rerun()
 
 # Instructions Page
 def instructions_page():
@@ -289,7 +278,16 @@ def instructions_page():
     """)
     if st.button("✅ Begin Testing"):
         st.session_state.page = 'testing'
-        st.rerun()  # Ensure your Streamlit version supports st.rerun()
+        st.experimental_rerun()
+
+# Loading Page
+def loading_page():
+    st.markdown("### Please wait while we submit your answers. Do not close this tab.")
+    with st.spinner("Submitting your responses..."):
+        save_ratings()
+    # After submission, move to closing page
+    st.session_state.page = 'closing'
+    st.experimental_rerun()
 
 # Testing Page
 def testing_page():
@@ -302,80 +300,75 @@ def testing_page():
     st.progress(progress)
     st.sidebar.markdown(f"**Progress:** Step {current_step} of {st.session_state.total_steps}")
 
-    if st.session_state.submitting and not st.session_state.save_done:
-        # Show spinner and please wait message
-        with st.spinner("Please wait while we submit your answers. Do not close this tab."):
-            save_ratings()
-            st.session_state.page = 'closing'
-            st.session_state.submitting = False
-            st.session_state.save_done = False
-            st.rerun()
-    else:
-        if current_input_index < len(input_files):
-            current_input_file = input_files[current_input_index]
-            input_name = current_input_file.name  # e.g., 'input-3.mp4'
-            descriptive_name = input_name_mapping.get(input_name, input_name)
-            st.header(f"🔊 Listening to Input MIDI: {descriptive_name}")
-            st.video(str(current_input_file))
+    if current_input_index < len(input_files):
+        current_input_file = input_files[current_input_index]
+        input_name = current_input_file.name  # e.g., 'input-3.mp4'
+        descriptive_name = input_name_mapping.get(input_name, input_name)
+        st.header(f"🔊 Listening to Input MIDI: {descriptive_name}")
+        st.video(str(current_input_file))
 
-            outputs = st.session_state.output_orders[current_input_file.name]
-            output_index = st.session_state.current_output_index
-            total_outputs = len(outputs)
+        outputs = st.session_state.output_orders[current_input_file.name]
+        output_index = st.session_state.current_output_index
+        total_outputs = len(outputs)
 
-            if output_index < total_outputs:
-                current_output = outputs[output_index]
-                continuation_number = output_index + 1  # 1 to 4
-                output_file = current_output['file']
-                st.subheader(f"🎹 Continuation {continuation_number}")
-                st.video(str(output_file))
+        if output_index < total_outputs:
+            current_output = outputs[output_index]
+            continuation_number = output_index + 1  # 1 to 4
+            output_file = current_output['file']
+            st.subheader(f"🎹 Continuation {continuation_number}")
+            st.video(str(output_file))
 
-                with st.form(f"rating_form_{current_input_index}_{output_index}"):
-                    st.markdown("**Please rate the following criteria:**")
-                    for criterion in evaluation_criteria:
-                        st.markdown(f"### {criterion['name']}")
-                        st.markdown(f"*{criterion['description']}*")
-                        st.markdown("**Scoring:**")
-                        st.markdown(f"- **1:** {criterion['scoring']['1']}")
-                        st.markdown(f"- **3:** {criterion['scoring']['3']}")
-                        st.markdown(f"- **5:** {criterion['scoring']['5']}")
-                        rating = st.slider(
-                            f"Rate {criterion['name']}:",
-                            min_value=1,
-                            max_value=5,
-                            value=3,
-                            step=1,
-                            key=f"{current_input_index}_{output_index}_{criterion['name']}"
-                        )
-                        # Save each criterion rating
-                        st.session_state.responses.append({
-                            'timestamp': datetime.now().isoformat(),
-                            'page': 'testing',
-                            'input': current_input_file.name,
-                            'output': output_file.name,
-                            'continuation_number': continuation_number,  # Using continuation number instead of model name
-                            'criterion': criterion['name'],
-                            'rating': rating
-                        })
-                        st.markdown("---")  # Divider between criteria
+            with st.form(f"rating_form_{current_input_index}_{output_index}"):
+                st.markdown("**Please rate the following criteria:**")
+                for criterion in evaluation_criteria:
+                    st.markdown(f"### {criterion['name']}")
+                    st.markdown(f"*{criterion['description']}*")
+                    st.markdown("**Scoring:**")
+                    st.markdown(f"- **1:** {criterion['scoring']['1']}")
+                    st.markdown(f"- **3:** {criterion['scoring']['3']}")
+                    st.markdown(f"- **5:** {criterion['scoring']['5']}")
+                    rating = st.slider(
+                        f"Rate {criterion['name']}:",
+                        min_value=1,
+                        max_value=5,
+                        value=3,
+                        step=1,
+                        key=f"{current_input_index}_{output_index}_{criterion['name']}"
+                    )
+                    # Save each criterion rating
+                    st.session_state.responses.append({
+                        'timestamp': datetime.now().isoformat(),
+                        'page': 'testing',
+                        'input': current_input_file.name,
+                        'output': output_file.name,
+                        'continuation_number': continuation_number,  # Using continuation number instead of model name
+                        'criterion': criterion['name'],
+                        'rating': rating
+                    })
+                    st.markdown("---")  # Divider between criteria
 
-                    submitted = st.form_submit_button("Submit Rating")
-                    if submitted:
-                        # Determine if this is the last rating
-                        is_last_input = (current_input_index == len(input_files) - 1)
-                        is_last_output = (output_index == total_outputs - 1)
-                        if is_last_input and is_last_output:
-                            # Set submitting flag and rerun to trigger save_ratings
-                            st.session_state.submitting = True
-                            st.session_state.save_done = False
-                            st.rerun()
-                        else:
-                            st.success("✅ Rating submitted successfully!")
-                            # Move to next output
-                            st.session_state.current_output_index += 1
-                            st.rerun()  # Ensure your Streamlit version supports st.rerun()
+                submitted = st.form_submit_button("Submit Rating")
+                if submitted:
+                    # Determine if this is the last rating
+                    is_last_input = (current_input_index == len(input_files) - 1)
+                    is_last_output = (output_index == total_outputs - 1)
+                    if is_last_input and is_last_output:
+                        # Move to loading page
+                        st.session_state.page = 'loading'
+                        st.experimental_rerun()
+                    else:
+                        st.success("✅ Rating submitted successfully!")
+                        # Move to next output
+                        st.session_state.current_output_index += 1
+                        st.experimental_rerun()
         else:
-            st.session_state.page = 'closing'
-            st.rerun()  # Ensure your Streamlit version supports st.rerun()
+            # Move to next input
+            st.session_state.current_input_index += 1
+            st.session_state.current_output_index = 0
+            st.experimental_rerun()
+    else:
+        st.session_state.page = 'closing'
+        st.experimental_rerun()
 
 # Closing Page
 def closing_page():
@@ -397,8 +390,7 @@ def closing_page():
                     'feedback': feedback
                 })
             # Save feedback to the database
-            with st.spinner("Please wait while we submit your feedback. Do not close this tab."):
-                save_feedback()
+            save_feedback()
             st.stop()
 
 # Initialize Database Connection
@@ -411,6 +403,8 @@ elif st.session_state.page == 'instructions':
     instructions_page()
 elif st.session_state.page == 'testing':
     testing_page()
+elif st.session_state.page == 'loading':
+    loading_page()
 elif st.session_state.page == 'closing':
     closing_page()
 else:
