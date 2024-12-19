@@ -67,7 +67,7 @@ def reset_session():
     for key in ['page', 'responses', 'current_input_index', 'current_output_index', 'input_order', 'output_orders', 'total_steps', 'submitting']:
         if key in st.session_state:
             del st.session_state[key]
-    st.experimental_rerun()
+    st.rerun()
 
 # Function to initialize database connection
 def init_db():
@@ -143,17 +143,6 @@ def save_feedback():
         st.error(f"Error saving feedback: {e}")
         raise e  # Add this to display full error in Streamlit logs
 
-# Helper function to scroll to top
-def scroll_to_top():
-    st.markdown(
-        """
-        <script>
-        window.scrollTo(0, 0);
-        </script>
-        """,
-        unsafe_allow_html=True
-    )
-
 # Mapping of input files to their descriptive names (without number of bars)
 input_name_mapping = {
     "input-3.mp4": "Familiar Tonal Snippet",
@@ -213,7 +202,6 @@ evaluation_criteria = [
 
 # Welcome Page
 def welcome_page():
-    scroll_to_top()  # Reset scroll position
     st.image("banner.png", use_container_width=True)  # Ensure 'banner.png' exists in your project directory
     st.title("🎵 Welcome to the AI Music Assistant User Testing 🎵")
     st.markdown("""
@@ -256,11 +244,10 @@ def welcome_page():
                     'gender': gender
                 })
                 st.session_state.page = 'instructions'
-                st.experimental_rerun()
+                st.rerun()
 
 # Instructions Page
 def instructions_page():
-    scroll_to_top()  # Reset scroll position
     st.title("📋 Testing Protocol Instructions 📋")
     st.markdown("""
         ### Scoring Method
@@ -291,21 +278,19 @@ def instructions_page():
     """)
     if st.button("✅ Begin Testing"):
         st.session_state.page = 'testing'
-        st.experimental_rerun()
+        st.rerun()
 
 # Loading Page
 def loading_page():
-    scroll_to_top()  # Reset scroll position
     st.markdown("### Please wait while we submit your answers. Do not close this tab.")
     with st.spinner("Submitting your responses..."):
         save_ratings()
     # After submission, move to closing page
     st.session_state.page = 'closing'
-    st.experimental_rerun()
+    st.rerun()
 
 # Testing Page
 def testing_page():
-    scroll_to_top()  # Reset scroll position
     input_files = st.session_state.input_order
     current_input_index = st.session_state.current_input_index
 
@@ -370,24 +355,23 @@ def testing_page():
                     if is_last_input and is_last_output:
                         # Move to loading page
                         st.session_state.page = 'loading'
-                        st.experimental_rerun()
+                        st.rerun()
                     else:
                         st.success("✅ Rating submitted successfully!")
                         # Move to next output
                         st.session_state.current_output_index += 1
-                        st.experimental_rerun()
+                        st.rerun()
         else:
             # Move to next input
             st.session_state.current_input_index += 1
             st.session_state.current_output_index = 0
-            st.experimental_rerun()
+            st.rerun()
     else:
         st.session_state.page = 'closing'
-        st.experimental_rerun()
+        st.rerun()
 
 # Closing Page
 def closing_page():
-    scroll_to_top()  # Reset scroll position
     st.image("closing_banner.png", use_container_width=True)  # Ensure 'closing_banner.png' exists in your project directory
     st.title("✅ Thank You for Your Participation!")
     st.markdown("""
