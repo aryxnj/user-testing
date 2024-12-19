@@ -64,7 +64,7 @@ if 'total_steps' not in st.session_state:
 
 # Function to reset the session (for testing purposes)
 def reset_session():
-    for key in ['page', 'responses', 'current_input_index', 'current_output_index', 'input_order', 'output_orders', 'total_steps', 'submitting']:
+    for key in ['page', 'responses', 'current_input_index', 'current_output_index', 'input_order', 'output_orders', 'total_steps']:
         if key in st.session_state:
             del st.session_state[key]
     st.rerun()  # Ensure your Streamlit version supports st.rerun()
@@ -145,14 +145,13 @@ def save_feedback():
 
 # Function to scroll to the top of the page
 def scroll_to_top():
-    st.components.v1.html(
+    st.markdown(
         """
         <script>
         window.scrollTo(0, 0);
         </script>
         """,
-        height=0,
-        width=0,
+        unsafe_allow_html=True,
     )
 
 # Mapping of input files to their descriptive names (without number of bars)
