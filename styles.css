@@ -1,0 +1,40 @@
+/* styles.css */
+
+/* Customize background color */
+body {
+    background-color: #f0f2f6;
+}
+
+/* Style headings */
+h1, h2, h3, h4, h5, h6 {
+    color: #333333;
+    font-family: 'Arial', sans-serif;
+}
+
+/* Style buttons */
+.stButton > button {
+    background-color: #4CAF50;
+    color: white;
+    border: none;
+    padding: 10px 24px;
+    text-align: center;
+    text-decoration: none;
+    display: inline-block;
+    font-size: 16px;
+    margin: 4px 2px;
+    cursor: pointer;
+    border-radius: 12px;
+}
+
+/* Customize forms */
+.stForm {
+    background-color: #ffffff;
+    padding: 20px;
+    border-radius: 10px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+/* Add spacing */
+.stMarkdown p {
+    line-height: 1.6;
+}
