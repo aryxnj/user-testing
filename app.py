@@ -2,6 +2,9 @@ import streamlit as st
 import streamlit.components.v1 as components
 from datetime import datetime
 
+# Add the invisible anchor at the top
+st.markdown('<a id="top"></a>', unsafe_allow_html=True)
+
 def scroll_to_top():
     components.html(
         """
@@ -9,8 +12,8 @@ def scroll_to_top():
         window.scrollTo({ top: 0, behavior: 'smooth' });
         </script>
         """,
-        height=1,  # Minimal height to ensure the component renders
-        width=1,   # Minimal width to ensure the component renders
+        height=1,
+        width=1,
         key=f"scroll_{datetime.now().strftime('%Y%m%d%H%M%S%f')}"  # Unique key without dots
     )
 
