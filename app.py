@@ -1,9 +1,9 @@
 import streamlit as st
+import streamlit.components.v1 as components  # Import components for JavaScript injection
 from sqlalchemy import create_engine, text
 from pathlib import Path
 import random
 from datetime import datetime
-import streamlit.components.v1 as components  # Import components for JavaScript injection
 
 # Set page configuration FIRST with centered layout
 st.set_page_config(
@@ -11,6 +11,19 @@ st.set_page_config(
     layout="centered",  # Changed from "wide" to "centered"
     initial_sidebar_state="collapsed"
 )
+
+# Function to scroll to top with a unique key
+def scroll_to_top():
+    components.html(
+        """
+        <script>
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+        </script>
+        """,
+        height=0,
+        width=0,
+        key=f"scroll_{datetime.now().timestamp()}"  # Unique key to force re-render
+    )
 
 # Initialize session state variables
 if 'page' not in st.session_state:
@@ -144,18 +157,6 @@ def save_feedback():
         st.error(f"Error saving feedback: {e}")
         raise e  # Add this to display full error in Streamlit logs
 
-# Function to scroll to top
-def scroll_to_top():
-    components.html(
-        """
-        <script>
-        window.scrollTo(0, 0);
-        </script>
-        """,
-        height=0,
-        width=0,
-    )
-
 # Mapping of input files to their descriptive names (without number of bars)
 input_name_mapping = {
     "input-3.mp4": "Familiar Tonal Snippet",
@@ -213,9 +214,11 @@ evaluation_criteria = [
     }
 ]
 
+# Call scroll_to_top once at the beginning of the script
+scroll_to_top()
+
 # Welcome Page
 def welcome_page():
-    scroll_to_top()  # Scroll to top when this page is loaded
     st.image("banner.png", use_container_width=True)  # Ensure 'banner.png' exists in your project directory
     st.title("🎵 Welcome to the AI Music Assistant User Testing 🎵")
     st.markdown("""
@@ -262,7 +265,6 @@ def welcome_page():
 
 # Instructions Page
 def instructions_page():
-    scroll_to_top()  # Scroll to top when this page is loaded
     st.title("📋 Testing Protocol Instructions 📋")
     st.markdown("""
         ### Scoring Method
@@ -297,7 +299,6 @@ def instructions_page():
 
 # Loading Page
 def loading_page():
-    scroll_to_top()  # Scroll to top when this page is loaded
     st.markdown("### Please wait while we submit your answers. Do not close this tab.")
     with st.spinner("Submitting your responses..."):
         save_ratings()
@@ -307,7 +308,6 @@ def loading_page():
 
 # Testing Page
 def testing_page():
-    scroll_to_top()  # Scroll to top when this page is loaded
     input_files = st.session_state.input_order
     current_input_index = st.session_state.current_input_index
 
@@ -389,7 +389,6 @@ def testing_page():
 
 # Closing Page
 def closing_page():
-    scroll_to_top()  # Scroll to top when this page is loaded
     st.image("closing_banner.png", use_container_width=True)  # Ensure 'closing_banner.png' exists in your project directory
     st.title("✅ Thank You for Your Participation!")
     st.markdown("""
@@ -413,8 +412,6 @@ def closing_page():
 
 # Initialize Database Connection
 init_db()
-
-scroll_to_top()  # Scroll to top when the app is loaded
 
 # Navigation
 if st.session_state.page == 'welcome':
