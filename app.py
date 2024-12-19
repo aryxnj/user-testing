@@ -67,7 +67,7 @@ def reset_session():
     for key in ['page', 'responses', 'current_input_index', 'current_output_index', 'input_order', 'output_orders', 'total_steps']:
         if key in st.session_state:
             del st.session_state[key]
-    st.rerun()  # Replace with st.rerun()
+    st.rerun()  # Ensure your Streamlit version supports st.rerun()
 
 # Function to initialize database connection
 def init_db():
@@ -103,14 +103,15 @@ def save_responses():
                     })
                 elif response['page'] == 'testing':
                     insert_query = text("""
-                        INSERT INTO user_ratings (timestamp, input_file, output_file, model, rating)
-                        VALUES (:timestamp, :input_file, :output_file, :model, :rating)
+                        INSERT INTO user_ratings (timestamp, input_file, output_file, model, criterion, rating)
+                        VALUES (:timestamp, :input_file, :output_file, :model, :criterion, :rating)
                     """)
                     connection.execute(insert_query, {
                         'timestamp': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
                         'input_file': response.get('input', ''),
                         'output_file': response.get('output', ''),
                         'model': response.get('model', ''),
+                        'criterion': response.get('criterion', ''),
                         'rating': response.get('rating', 0)
                     })
                 elif response['page'] == 'feedback':
@@ -127,9 +128,66 @@ def save_responses():
         st.error(f"Error saving responses: {e}")
         raise e  # Add this to display full error in Streamlit logs
 
+# Mapping of input files to their descriptive names
+input_name_mapping = {
+    "input-3.mp4": "Familiar Tonal Snippet (2 bars)",
+    "input-4.mp4": "Medium-Length Original Melody (8 bars)",
+    "input-5.mp4": "Atonal, Wide-Range Melody (4 bars)",
+    "input-6.mp4": "Long Repetitive Motif (16 bars)"
+}
+
+# Evaluation Criteria
+evaluation_criteria = [
+    {
+        "name": "Pitch/Tonal Coherence",
+        "description": "How well does the continuation fit into an implied key or tonal centre established by the primer melody (if any)? For atonal examples, does the model at least maintain consistent intervallic relationships or avoid overly jarring leaps without intent?",
+        "scoring": {
+            "1": "Completely random, no sense of pitch organisation",
+            "3": "Generally consistent pitches, occasional off-key notes if tonal context applies",
+            "5": "Strong tonal coherence, notes feel harmonically related or purposefully atonal but structured"
+        }
+    },
+    {
+        "name": "Rhythmic Stability & Flow",
+        "description": "Does the continuation maintain a clear rhythmic pulse and align well with the time signature and feel of the initial segment? Is it rhythmically logical, or too erratic and disjointed?",
+        "scoring": {
+            "1": "Erratic durations, awkward pauses, no clear rhythmic pattern",
+            "3": "Some stability, but occasional unnatural note placements",
+            "5": "Flows naturally, rhythmically coherent, and matches or complements the original rhythm"
+        }
+    },
+    {
+        "name": "Motivic & Thematic Continuity",
+        "description": "Does the continuation pick up on melodic motifs, patterns, or contours from the original melody and develop them further? Or does it abruptly shift to unrelated ideas?",
+        "scoring": {
+            "1": "Completely unrelated sequence, abrupt changes with no continuity",
+            "3": "Some fragments of previous patterns appear, but not consistently",
+            "5": "Smooth thematic development, clear recognition and transformation of initial motifs"
+        }
+    },
+    {
+        "name": "Range & Complexity Management",
+        "description": "How well does the model manage pitch range and complexity? Does it stay within a logical register, or jump erratically across octaves? Is the complexity (interval sizes, rhythmic subdivisions) appropriate for the style?",
+        "scoring": {
+            "1": "Extreme register jumps without reason, overly complex or simplistic to the point of incoherence",
+            "3": "Generally appropriate complexity, a few overly large leaps or simplistic streaks",
+            "5": "Balanced complexity, maintains a comfortable range and adds variety without chaos"
+        }
+    },
+    {
+        "name": "Aesthetic/Subjective Appeal",
+        "description": "A more subjective measure of how pleasant, engaging, or musically “satisfying” the continuation sounds.",
+        "scoring": {
+            "1": "Unpleasant, jarring, or meaningless sequence",
+            "3": "Acceptable but somewhat bland or directionless",
+            "5": "Musically appealing, has a sense of purpose or emotional quality"
+        }
+    }
+]
+
 # Welcome Page
 def welcome_page():
-    st.image("banner.png", use_container_width=True)  # Updated parameter
+    st.image("banner.png", use_container_width=True)  # Ensure 'banner.png' exists in your project directory
     st.title("🎵 Welcome to the AI Music Assistant User Testing 🎵")
     st.markdown("""
         Thank you for participating! In this study, you'll listen to original MIDI files and AI-generated continuations from various models. 
@@ -171,15 +229,70 @@ def welcome_page():
 def instructions_page():
     st.title("📋 Testing Protocol Instructions 📋")
     st.markdown("""
-        Here's how the testing protocol will work:
-        
-        1. **Listen to the Input MIDI:** You'll first hear an original MIDI file. This is the piece that the AI models will continue.
-        
-        2. **Listen to AI-Generated Continuations:** After the input, you'll hear several continuations generated by different AI models.
-        
-        3. **Rate Each Output:** For each AI-generated continuation, please rate its quality on a scale from 1 to 5, where 1 is the lowest and 5 is the highest.
-        
-        **Note:** The order of the MIDI files and the AI model outputs has been randomized to ensure unbiased feedback.
+        ### Evaluation Criteria
+
+        You will evaluate each AI-generated continuation based on the following criteria:
+
+        1. **Pitch/Tonal Coherence**
+            - **Description:** How well does the continuation fit into an implied key or tonal centre established by the primer melody (if any)? For atonal examples, does the model at least maintain consistent intervallic relationships or avoid overly jarring leaps without intent?
+            - **Scoring:**
+                - **1:** Completely random, no sense of pitch organisation
+                - **3:** Generally consistent pitches, occasional off-key notes if tonal context applies
+                - **5:** Strong tonal coherence, notes feel harmonically related or purposefully atonal but structured
+
+        2. **Rhythmic Stability & Flow**
+            - **Description:** Does the continuation maintain a clear rhythmic pulse and align well with the time signature and feel of the initial segment? Is it rhythmically logical, or too erratic and disjointed?
+            - **Scoring:**
+                - **1:** Erratic durations, awkward pauses, no clear rhythmic pattern
+                - **3:** Some stability, but occasional unnatural note placements
+                - **5:** Flows naturally, rhythmically coherent, and matches or complements the original rhythm
+
+        3. **Motivic & Thematic Continuity**
+            - **Description:** Does the continuation pick up on melodic motifs, patterns, or contours from the original melody and develop them further? Or does it abruptly shift to unrelated ideas?
+            - **Scoring:**
+                - **1:** Completely unrelated sequence, abrupt changes with no continuity
+                - **3:** Some fragments of previous patterns appear, but not consistently
+                - **5:** Smooth thematic development, clear recognition and transformation of initial motifs
+
+        4. **Range & Complexity Management**
+            - **Description:** How well does the model manage pitch range and complexity? Does it stay within a logical register, or jump erratically across octaves? Is the complexity (interval sizes, rhythmic subdivisions) appropriate for the style?
+            - **Scoring:**
+                - **1:** Extreme register jumps without reason, overly complex or simplistic to the point of incoherence
+                - **3:** Generally appropriate complexity, a few overly large leaps or simplistic streaks
+                - **5:** Balanced complexity, maintains a comfortable range and adds variety without chaos
+
+        5. **Aesthetic/Subjective Appeal**
+            - **Description:** A more subjective measure of how pleasant, engaging, or musically “satisfying” the continuation sounds.
+            - **Scoring:**
+                - **1:** Unpleasant, jarring, or meaningless sequence
+                - **3:** Acceptable but somewhat bland or directionless
+                - **5:** Musically appealing, has a sense of purpose or emotional quality
+
+        ### Scoring Method
+
+        - For each model’s generated continuation of each test melody, assign a score of **1 to 5** for each criterion.
+        - **Total the scores** for a composite result, or consider different weights for each criterion depending on the experiment’s priorities.
+        - **Compare results** across models, parameter settings, and input melodies to draw conclusions about which configurations yield the most coherent, appealing, and stylistically appropriate continuations.
+
+        ### Test Melodies Overview
+
+        Each melody has been designed to represent different musical characteristics, complexity levels, and lengths. The idea is to provide a diverse set of test inputs so the continuation models can be evaluated on a range of scenarios.
+
+        1. **Familiar Tonal Snippet (2 bars)**
+            - **Description:** A short excerpt inspired by a familiar children’s melody, using only a few pitches within a simple scale.
+            - **Reasoning:** Evaluates how well the model continues a well-known melodic pattern, potentially revealing if it respects common tonal tendencies and phrase endings.
+
+        2. **Medium-Length Original Melody (8 bars)**
+            - **Description:** A custom, moderately long melody that mixes different note lengths and steps mostly within a major scale.
+            - **Reasoning:** Provides a more realistic musical context, testing the model’s handling of basic musical structure, varied rhythms, and thematic development.
+
+        3. **Atonal, Wide-Range Melody (4 bars)**
+            - **Description:** A short sequence without a clear key, incorporating large jumps and diverse pitches.
+            - **Reasoning:** Challenges the model to cope with irregular, disjunct patterns and to see if it imposes its own structure or explores outside tonal norms.
+
+        4. **Long Repetitive Motif (16 bars)**
+            - **Description:** An extended sequence made by repeating a two-bar motif several times.
+            - **Reasoning:** Assesses how the model deals with longer context and repetitive patterns. Will it continue with variations, remain consistent, or diverge unexpectedly?
     """)
     if st.button("✅ Begin Testing"):
         st.session_state.page = 'testing'
@@ -199,7 +312,8 @@ def testing_page():
     if current_input_index < len(input_files):
         current_input_file = input_files[current_input_index]
         input_name = current_input_file.name  # e.g., 'input-3.mp4'
-        st.header(f"🔊 Listening to Input MIDI: {input_name.replace('.mp4', '').replace('-', ' ').capitalize()}")
+        descriptive_name = input_name_mapping.get(input_name, input_name)
+        st.header(f"🔊 Listening to Input MIDI: {descriptive_name}")
         st.video(str(current_input_file))
 
         outputs = st.session_state.output_orders[current_input_file.name]
@@ -208,30 +322,32 @@ def testing_page():
 
         if output_index < total_outputs:
             current_output = outputs[output_index]
-            model_name = current_output['model']
+            continuation_number = output_index + 1  # 1 to 4
             output_file = current_output['file']
-            st.subheader(f"🎹 AI-Generated Continuation from {model_name.capitalize()} Model")
+            st.subheader(f"🎹 Continuation {continuation_number}")
             st.video(str(output_file))
 
             with st.form(f"rating_form_{current_input_index}_{output_index}"):
-                # Replace slider with radio buttons for ratings
-                rating = st.radio(
-                    f"Rate the continuation from the **{model_name.capitalize()}** Model:",
-                    options=[1, 2, 3, 4, 5],
-                    index=2,
-                    format_func=lambda x: "⭐" * x
-                )
-                submitted = st.form_submit_button("Submit Rating")
-                if submitted:
-                    # Save the rating with timestamp
+                st.markdown("**Please rate the following criteria:**")
+                for criterion in evaluation_criteria:
+                    rating = st.radio(
+                        f"{criterion['name']}: {criterion['description']}",
+                        options=[1, 2, 3, 4, 5],
+                        index=2,
+                        key=f"{current_input_index}_{output_index}_{criterion['name']}"
+                    )
+                    # Save each criterion rating
                     st.session_state.responses.append({
                         'timestamp': datetime.now().isoformat(),
                         'page': 'testing',
                         'input': current_input_file.name,
                         'output': output_file.name,
-                        'model': model_name,
+                        'model': continuation_number,  # Using continuation number instead of model name
+                        'criterion': criterion['name'],
                         'rating': rating
                     })
+                submitted = st.form_submit_button("Submit Rating")
+                if submitted:
                     st.success("✅ Rating submitted successfully!")
                     # Move to next output
                     st.session_state.current_output_index += 1
@@ -247,7 +363,7 @@ def testing_page():
 
 # Closing Page
 def closing_page():
-    st.image("closing_banner.png", use_container_width=True)  # Updated parameter
+    st.image("closing_banner.png", use_container_width=True)  # Ensure 'closing_banner.png' exists in your project directory
     st.title("✅ Thank You for Your Participation! ✅")
     st.markdown("""
         We appreciate you taking the time to help us improve the AI Music Assistant. 
