@@ -12,19 +12,6 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-# Function to scroll to top with a unique key
-def scroll_to_top():
-    components.html(
-        """
-        <script>
-        window.scrollTo({ top: 0, behavior: 'smooth' });
-        </script>
-        """,
-        height=0,
-        width=0,
-        key=f"scroll_{datetime.now().timestamp()}"  # Unique key to force re-render
-    )
-
 # Initialize session state variables
 if 'page' not in st.session_state:
     st.session_state.page = 'welcome'
@@ -214,8 +201,15 @@ evaluation_criteria = [
     }
 ]
 
-# Call scroll_to_top once at the beginning of the script
-scroll_to_top()
+js = '''
+<script>
+    var body = window.parent.document.querySelector(".main");
+    console.log(body);
+    body.scrollTop = 0;
+</script>
+'''
+
+st.components.v1.html(js)
 
 # Welcome Page
 def welcome_page():
