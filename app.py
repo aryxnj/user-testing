@@ -205,7 +205,9 @@ def render_sidebar():
     st.sidebar.title("📋 Contents")
     # Add the first separator underneath the title
     st.sidebar.markdown("---")  # First Separator
-    
+    # Add the second separator underneath the title
+    st.sidebar.markdown("---")  # Second Separator
+
     pages = ["welcome", "instructions", "testing", "closing"]
     for page in pages:
         display_name = page.capitalize()
@@ -214,10 +216,10 @@ def render_sidebar():
             st.sidebar.markdown(f"### **{display_name}**")
         else:
             st.sidebar.markdown(f"{display_name}")
-    
-    # Add the second separator just underneath the contents
-    st.sidebar.markdown("---")  # Second Separator
-    
+
+    # Add the third separator just underneath the contents
+    st.sidebar.markdown("---")  # Third Separator
+
     # Only show Testing Progress or Completed when in Testing-related pages
     if st.session_state.page in ['testing', 'loading', 'closing']:
         st.sidebar.subheader("📝 Testing Progress")
@@ -345,7 +347,6 @@ def testing_page():
         input_name = current_input_file.name  # e.g., 'input-3.mp4'
         descriptive_name = input_name_mapping.get(input_name, input_name)
         st.header(f"🔊 Listening to Input MIDI: {descriptive_name}")
-        st.video(str(current_input_file))
 
         outputs = st.session_state.output_orders[current_input_file.name]
         output_index = st.session_state.current_output_index
@@ -430,6 +431,8 @@ def render_sidebar():
     st.sidebar.title("📋 Contents")
     # Add the first separator underneath the title
     st.sidebar.markdown("---")  # First Separator
+    # Add the second separator underneath the title
+    st.sidebar.markdown("---")  # Second Separator
 
     pages = ["welcome", "instructions", "testing", "closing"]
     for page in pages:
@@ -440,8 +443,8 @@ def render_sidebar():
         else:
             st.sidebar.markdown(f"{display_name}")
 
-    # Add the second separator just underneath the contents
-    st.sidebar.markdown("---")  # Second Separator
+    # Add the third separator just underneath the contents
+    st.sidebar.markdown("---")  # Third Separator
 
     # Only show Testing Progress or Completed when in Testing-related pages
     if st.session_state.page in ['testing', 'loading', 'closing']:
