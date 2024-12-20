@@ -70,7 +70,7 @@ def reset_session():
     for key in ['page', 'responses', 'current_input_index', 'current_output_index', 'input_order', 'output_orders', 'total_steps', 'submitting']:
         if key in st.session_state:
             del st.session_state[key]
-    st.experimental_rerun()
+    st.rerun()
 
 # Function to initialize database connection
 def init_db():
@@ -247,7 +247,7 @@ def welcome_page():
                     'gender': gender
                 })
                 st.session_state.page = 'instructions'
-                st.experimental_rerun()
+                st.rerun()
 
 # Instructions Page
 def instructions_page():
@@ -282,7 +282,7 @@ def instructions_page():
 
     if st.button("✅ Begin Testing"):
         st.session_state.page = 'testing'
-        st.experimental_rerun()
+        st.rerun()
 
 # Loading Page
 def loading_page():
@@ -291,7 +291,7 @@ def loading_page():
         save_ratings()
     # After submission, move to closing page
     st.session_state.page = 'closing'
-    st.experimental_rerun()
+    st.rerun()
 
 # Testing Page
 def testing_page():
@@ -363,15 +363,15 @@ def testing_page():
                         st.success("✅ Rating submitted successfully!")
                         # Move to next output
                         st.session_state.current_output_index += 1
-                    st.experimental_rerun()
+                    st.rerun()
         else:
             # Move to next input
             st.session_state.current_input_index += 1
             st.session_state.current_output_index = 0
-            st.experimental_rerun()
+            st.rerun()
     else:
         st.session_state.page = 'closing'
-        st.experimental_rerun()
+        st.rerun()
 
 # Closing Page
 def closing_page():
@@ -394,7 +394,7 @@ def closing_page():
                 })
             # Save feedback to the database
             save_feedback()
-            st.experimental_rerun()
+            st.rerun()
 
 # Initialize Database Connection
 init_db()
