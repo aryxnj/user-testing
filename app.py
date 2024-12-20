@@ -7,9 +7,12 @@ from datetime import datetime
 # Set page configuration FIRST with centered layout
 st.set_page_config(
     page_title="AI Music Assistant User Testing",
-    layout="centered",  # Changed from "wide" to "centered"
+    layout="centered",
     initial_sidebar_state="collapsed"
 )
+
+# Add a hidden anchor at the very top of the page
+st.markdown('<a id="top"></a>', unsafe_allow_html=True)
 
 # Initialize session state variables
 if 'page' not in st.session_state:
@@ -62,15 +65,12 @@ if 'total_steps' not in st.session_state:
     num_outputs = 4  # Assuming 4 models per input
     st.session_state.total_steps = 2 + (num_inputs * num_outputs) + 1  # welcome, instructions, closing
 
-if 'scroll_to_top' not in st.session_state:
-    st.session_state.scroll_to_top = False  # Initialize the scroll flag
-
 # Function to reset the session (for testing purposes)
 def reset_session():
-    for key in ['page', 'responses', 'current_input_index', 'current_output_index', 'input_order', 'output_orders', 'total_steps', 'submitting', 'scroll_to_top']:
+    for key in ['page', 'responses', 'current_input_index', 'current_output_index', 'input_order', 'output_orders', 'total_steps', 'submitting']:
         if key in st.session_state:
             del st.session_state[key]
-    st.rerun()
+    st.experimental_rerun()
 
 # Function to initialize database connection
 def init_db():
@@ -145,20 +145,6 @@ def save_feedback():
     except Exception as e:
         st.error(f"Error saving feedback: {e}")
         raise e  # Add this to display full error in Streamlit logs
-
-# Function to inject JavaScript for scrolling to top
-def inject_scroll_js():
-    # Inject JavaScript with a slight delay to ensure it runs after the page is rendered
-    st.markdown(
-        """
-        <script>
-            setTimeout(function() {
-                window.scrollTo({ top: 0, behavior: 'smooth' });
-            }, 100);
-        </script>
-        """,
-        unsafe_allow_html=True
-    )
 
 # Mapping of input files to their descriptive names (without number of bars)
 input_name_mapping = {
@@ -261,8 +247,7 @@ def welcome_page():
                     'gender': gender
                 })
                 st.session_state.page = 'instructions'
-                st.session_state.scroll_to_top = True  # Set flag to scroll to top
-                st.rerun()
+                st.experimental_rerun()
 
 # Instructions Page
 def instructions_page():
@@ -294,10 +279,10 @@ def instructions_page():
             - **Description:** An extended sequence made by repeating a two-bar motif several times.
             - **Reasoning:** Assesses how the model deals with longer context and repetitive patterns. Will it continue with variations, remain consistent, or diverge unexpectedly?
     """)
+
     if st.button("✅ Begin Testing"):
         st.session_state.page = 'testing'
-        st.session_state.scroll_to_top = True  # Set flag to scroll to top
-        st.rerun()
+        st.experimental_rerun()
 
 # Loading Page
 def loading_page():
@@ -306,8 +291,7 @@ def loading_page():
         save_ratings()
     # After submission, move to closing page
     st.session_state.page = 'closing'
-    st.session_state.scroll_to_top = True  # Set flag to scroll to top
-    st.rerun()
+    st.experimental_rerun()
 
 # Testing Page
 def testing_page():
@@ -379,18 +363,15 @@ def testing_page():
                         st.success("✅ Rating submitted successfully!")
                         # Move to next output
                         st.session_state.current_output_index += 1
-                    st.session_state.scroll_to_top = True  # Set flag to scroll to top
-                    st.rerun()
+                    st.experimental_rerun()
         else:
             # Move to next input
             st.session_state.current_input_index += 1
             st.session_state.current_output_index = 0
-            st.session_state.scroll_to_top = True  # Set flag to scroll to top
-            st.rerun()
+            st.experimental_rerun()
     else:
         st.session_state.page = 'closing'
-        st.session_state.scroll_to_top = True  # Set flag to scroll to top
-        st.rerun()
+        st.experimental_rerun()
 
 # Closing Page
 def closing_page():
@@ -413,8 +394,7 @@ def closing_page():
                 })
             # Save feedback to the database
             save_feedback()
-            st.session_state.scroll_to_top = True  # Set flag to scroll to top
-            st.rerun()
+            st.experimental_rerun()
 
 # Initialize Database Connection
 init_db()
@@ -433,7 +413,32 @@ elif st.session_state.page == 'closing':
 else:
     st.error("Unknown page!")
 
-# Inject JavaScript to scroll to top if the flag is set
-if st.session_state.get('scroll_to_top', False):
-    inject_scroll_js()
-    st.session_state.scroll_to_top = False  # Reset the flag
+# Add the scroll-to-top button after all content
+st.markdown(
+    """
+    <style>
+    .scroll-button {
+        position: fixed;
+        bottom: 30px;
+        right: 30px;
+        background-color: #4CAF50;
+        color: white;
+        padding: 15px;
+        border: none;
+        border-radius: 50%;
+        text-align: center;
+        text-decoration: none;
+        font-size: 18px;
+        cursor: pointer;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+        transition: background-color 0.3s;
+    }
+
+    .scroll-button:hover {
+        background-color: #45a049;
+    }
+    </style>
+    <a href="#top" class="scroll-button" title="Scroll to Top">↑</a>
+    """,
+    unsafe_allow_html=True
+)
