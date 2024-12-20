@@ -203,6 +203,9 @@ evaluation_criteria = [
 # Function to render the sidebar
 def render_sidebar():
     st.sidebar.title("📋 Contents")
+    # Add the first separator underneath the title
+    st.sidebar.markdown("---")  # First Separator
+    
     pages = ["welcome", "instructions", "testing", "closing"]
     for page in pages:
         display_name = page.capitalize()
@@ -212,17 +215,18 @@ def render_sidebar():
         else:
             st.sidebar.markdown(f"{display_name}")
     
-    # Add a separator underneath 📋 Contents
-    st.sidebar.markdown("---")  # Separator
-
-    # Only show separators and Testing Progress when in Testing-related pages
+    # Add the second separator just underneath the contents
+    st.sidebar.markdown("---")  # Second Separator
+    
+    # Only show Testing Progress or Completed when in Testing-related pages
     if st.session_state.page in ['testing', 'loading', 'closing']:
+        st.sidebar.subheader("📝 Testing Progress")
         if st.session_state.page == 'closing':
             # Show "Completed ✅" when on the closing page
-            st.sidebar.subheader("📝 Testing Progress")
             st.sidebar.markdown("Completed ✅")
+            # Set progress bar to 100%
+            st.sidebar.progress(1.0)
         else:
-            st.sidebar.subheader("📝 Testing Progress")
             total_continuations = st.session_state.total_steps  # 16
             # Calculate completed continuations as unique (input, output) pairs
             completed_continuations = len({
@@ -424,6 +428,9 @@ def closing_page():
 # Function to render the sidebar
 def render_sidebar():
     st.sidebar.title("📋 Contents")
+    # Add the first separator underneath the title
+    st.sidebar.markdown("---")  # First Separator
+
     pages = ["welcome", "instructions", "testing", "closing"]
     for page in pages:
         display_name = page.capitalize()
@@ -432,18 +439,19 @@ def render_sidebar():
             st.sidebar.markdown(f"### **{display_name}**")
         else:
             st.sidebar.markdown(f"{display_name}")
-    
-    # Add a separator underneath 📋 Contents
-    st.sidebar.markdown("---")  # Separator
+
+    # Add the second separator just underneath the contents
+    st.sidebar.markdown("---")  # Second Separator
 
     # Only show Testing Progress or Completed when in Testing-related pages
     if st.session_state.page in ['testing', 'loading', 'closing']:
+        st.sidebar.subheader("📝 Testing Progress")
         if st.session_state.page == 'closing':
             # Show "Completed ✅" when on the closing page
-            st.sidebar.subheader("📝 Testing Progress")
             st.sidebar.markdown("Completed ✅")
+            # Set progress bar to 100%
+            st.sidebar.progress(1.0)
         else:
-            st.sidebar.subheader("📝 Testing Progress")
             total_continuations = st.session_state.total_steps  # 16
             # Calculate completed continuations as unique (input, output) pairs
             completed_continuations = len({
