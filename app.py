@@ -4,11 +4,11 @@ from pathlib import Path
 import random
 from datetime import datetime
 
-# Set page configuration FIRST with centered layout
+# Set page configuration FIRST with expanded sidebar
 st.set_page_config(
     page_title="AI Music Assistant User Testing",
     layout="centered",  # Changed from "wide" to "centered"
-    initial_sidebar_state="collapsed"
+    initial_sidebar_state="expanded"  # Changed to always show the sidebar
 )
 
 # Initialize session state variables
@@ -67,7 +67,7 @@ def reset_session():
     for key in ['page', 'responses', 'current_input_index', 'current_output_index', 'input_order', 'output_orders', 'total_steps', 'submitting']:
         if key in st.session_state:
             del st.session_state[key]
-    st.rerun()
+    st.experimental_rerun()
 
 # Function to initialize database connection
 def init_db():
@@ -200,6 +200,38 @@ evaluation_criteria = [
     }
 ]
 
+# Sidebar Navigation
+def sidebar_navigation():
+    st.sidebar.header("📌 Contents")
+    pages = ["Welcome", "Instructions", "Testing", "Closing"]
+    selected_page = st.sidebar.radio("Go to", pages)
+
+    # Update session_state.page based on selection
+    if selected_page.lower() != st.session_state.page:
+        st.session_state.page = selected_page.lower()
+        st.experimental_rerun()
+
+    # Display progress under "Testing"
+    if st.session_state.page == 'testing':
+        # Calculate current evaluation count
+        total_evaluations = len(st.session_state.input_order) * len(evaluation_criteria)
+        completed_evaluations = sum(
+            1 for response in st.session_state.responses if response['page'] == 'testing'
+        )
+        progress_percentage = completed_evaluations / total_evaluations if total_evaluations > 0 else 0
+
+        st.sidebar.markdown("### 📊 Progress")
+        st.sidebar.progress(progress_percentage)
+        st.sidebar.markdown(f"**{completed_evaluations} / {total_evaluations} Evaluations Completed**")
+
+    # Add some space before the reset button
+    st.sidebar.markdown("---")
+    st.sidebar.markdown("")
+
+    # Reset Session Button
+    if st.sidebar.button("🔄 Reset Session"):
+        reset_session()
+
 # Welcome Page
 def welcome_page():
     st.image("banner.png", use_container_width=True)  # Ensure 'banner.png' exists in your project directory
@@ -244,7 +276,7 @@ def welcome_page():
                     'gender': gender
                 })
                 st.session_state.page = 'instructions'
-                st.rerun()
+                st.experimental_rerun()
 
 # Instructions Page
 def instructions_page():
@@ -278,7 +310,7 @@ def instructions_page():
     """)
     if st.button("✅ Begin Testing"):
         st.session_state.page = 'testing'
-        st.rerun()
+        st.experimental_rerun()
 
 # Loading Page
 def loading_page():
@@ -287,18 +319,12 @@ def loading_page():
         save_ratings()
     # After submission, move to closing page
     st.session_state.page = 'closing'
-    st.rerun()
+    st.experimental_rerun()
 
 # Testing Page
 def testing_page():
     input_files = st.session_state.input_order
     current_input_index = st.session_state.current_input_index
-
-    # Calculate current step for progress bar
-    current_step = 2 + (current_input_index * 4) + st.session_state.current_output_index  # 2 for welcome and instructions
-    progress = current_step / st.session_state.total_steps
-    st.progress(progress)
-    st.sidebar.markdown(f"**Progress:** Step {current_step} of {st.session_state.total_steps}")
 
     if current_input_index < len(input_files):
         current_input_file = input_files[current_input_index]
@@ -349,26 +375,18 @@ def testing_page():
 
                 submitted = st.form_submit_button("Submit Rating")
                 if submitted:
-                    # Determine if this is the last rating
-                    is_last_input = (current_input_index == len(input_files) - 1)
-                    is_last_output = (output_index == total_outputs - 1)
-                    if is_last_input and is_last_output:
-                        # Move to loading page
-                        st.session_state.page = 'loading'
-                        st.rerun()
-                    else:
-                        st.success("✅ Rating submitted successfully!")
-                        # Move to next output
-                        st.session_state.current_output_index += 1
-                        st.rerun()
+                    # Move to next output
+                    st.success("✅ Rating submitted successfully!")
+                    st.session_state.current_output_index += 1
+                    st.experimental_rerun()
         else:
             # Move to next input
             st.session_state.current_input_index += 1
             st.session_state.current_output_index = 0
-            st.rerun()
+            st.experimental_rerun()
     else:
         st.session_state.page = 'closing'
-        st.rerun()
+        st.experimental_rerun()
 
 # Closing Page
 def closing_page():
@@ -396,7 +414,10 @@ def closing_page():
 # Initialize Database Connection
 init_db()
 
-# Navigation
+# Sidebar Navigation
+sidebar_navigation()
+
+# Navigation Logic
 if st.session_state.page == 'welcome':
     welcome_page()
 elif st.session_state.page == 'instructions':
