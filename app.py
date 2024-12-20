@@ -4,11 +4,11 @@ from pathlib import Path
 import random
 from datetime import datetime
 
-# Set page configuration with centered layout
+# Set page configuration FIRST with centered layout
 st.set_page_config(
     page_title="AI Music Assistant User Testing",
-    layout="centered",
-    initial_sidebar_state="expanded"
+    layout="centered",  # Changed from "wide" to "centered"
+    initial_sidebar_state="collapsed"
 )
 
 # Initialize session state variables
@@ -57,15 +57,14 @@ if 'output_orders' not in st.session_state:
     st.session_state.output_orders = output_orders
 
 if 'total_steps' not in st.session_state:
-    # Calculate total steps: welcome + instructions + (inputs * outputs * criteria) + feedback + closing
+    # Calculate total steps: welcome + instructions + (inputs * outputs) + closing
     num_inputs = len(st.session_state.input_order)
     num_outputs = 4  # Assuming 4 models per input
-    num_criteria = 5  # Number of evaluation criteria
-    st.session_state.total_steps = 2 + (num_inputs * num_outputs * num_criteria) + 1  # welcome, instructions, closing
+    st.session_state.total_steps = 2 + (num_inputs * num_outputs) + 1  # welcome, instructions, closing
 
 # Function to reset the session (for testing purposes)
 def reset_session():
-    for key in ['page', 'responses', 'current_input_index', 'current_output_index', 'input_order', 'output_orders', 'total_steps']:
+    for key in ['page', 'responses', 'current_input_index', 'current_output_index', 'input_order', 'output_orders', 'total_steps', 'submitting']:
         if key in st.session_state:
             del st.session_state[key]
     st.rerun()
@@ -78,6 +77,7 @@ def init_db():
                      f"{st.secrets['postgres']['host']}:{st.secrets['postgres']['port']}/{st.secrets['postgres']['database']}"
             engine = create_engine(db_url, connect_args={"sslmode": st.secrets['postgres']['sslmode']})
             st.session_state.db_engine = engine
+            # Removed the success message as per instructions
         except Exception as e:
             st.error(f"Error connecting to PostgreSQL: {e}")
 
@@ -200,33 +200,6 @@ evaluation_criteria = [
     }
 ]
 
-# Initialize Database Connection
-init_db()
-
-# Sidebar Navigation
-with st.sidebar:
-    st.image("banner.png", use_column_width=True)  # Ensure 'banner.png' exists in your project directory
-    st.title("AI Music Assistant")
-    st.markdown("---")
-    menu = ["Welcome", "Instructions", "Testing", "Closing"]
-    choice = st.radio("Navigation", menu)
-    
-    st.markdown("---")
-    if st.button("🔄 Reset Session"):
-        reset_session()
-    
-    # Progress Bar (only visible during testing)
-    if st.session_state.page == 'testing':
-        num_completed = len([resp for resp in st.session_state.responses if resp['page'] == 'testing'])
-        progress = num_completed / st.session_state.total_steps
-        st.progress(progress)
-
-# Function to track completed tabs
-def is_tab_completed(tab_index, total_tabs):
-    # Determine if a tab is completed based on responses
-    required_responses = st.session_state.current_input_index * 4 * 5 + tab_index * 5  # Example calculation
-    return len(st.session_state.responses) >= required_responses
-
 # Welcome Page
 def welcome_page():
     st.image("banner.png", use_container_width=True)  # Ensure 'banner.png' exists in your project directory
@@ -316,10 +289,16 @@ def loading_page():
     st.session_state.page = 'closing'
     st.rerun()
 
-# Testing Page
+# Testing Page with Tabs
 def testing_page():
     input_files = st.session_state.input_order
     current_input_index = st.session_state.current_input_index
+
+    # Calculate current step for progress bar
+    current_step = 2 + (current_input_index * 4) + st.session_state.current_output_index  # 2 for welcome and instructions
+    progress = current_step / st.session_state.total_steps
+    st.progress(progress)
+    st.sidebar.markdown(f"**Progress:** Step {current_step} of {st.session_state.total_steps}")
 
     if current_input_index < len(input_files):
         current_input_file = input_files[current_input_index]
@@ -339,54 +318,78 @@ def testing_page():
             st.subheader(f"🎹 Continuation {continuation_number}")
             st.video(str(output_file))
 
-            st.markdown("**Please rate the following criteria:**")
+            # Initialize a dictionary to store ratings for each criterion
+            if 'current_ratings' not in st.session_state:
+                st.session_state.current_ratings = {}
 
-            # Create Tabs for each evaluation criterion
-            tabs = st.tabs([criterion['name'] for criterion in evaluation_criteria])
+            with st.form(f"rating_form_{current_input_index}_{output_index}"):
+                st.markdown("**Please rate the following criteria:**")
+                
+                # Create tabs for each evaluation criterion
+                tabs = st.tabs([criterion['name'] for criterion in evaluation_criteria])
+                
+                for idx, criterion in enumerate(evaluation_criteria):
+                    with tabs[idx]:
+                        st.markdown(f"*{criterion['description']}*")
+                        # Use radio buttons with an initial "Not Selected" option
+                        rating = st.radio(
+                            f"Rate {criterion['name']}:",
+                            options=["Select", "1", "2", "3", "4", "5"],
+                            index=0,
+                            key=f"{current_input_index}_{output_index}_{criterion['name']}"
+                        )
+                        if rating != "Select":
+                            st.session_state.current_ratings[criterion['name']] = int(rating)
+                        else:
+                            st.session_state.current_ratings[criterion['name']] = None
+                        st.markdown("---")  # Divider between criteria
 
-            # Initialize a dictionary to store ratings for the current output
-            current_ratings = {}
-
-            for idx, criterion in enumerate(evaluation_criteria):
-                with tabs[idx]:
-                    # Check if the criterion has already been rated
-                    key = f"rating_{current_input_index}_{output_index}_{idx}"
-                    if key not in st.session_state:
-                        st.session_state[key] = None
-
-                    rating = st.slider(
-                        f"Rate {criterion['name']}:",
-                        min_value=1,
-                        max_value=5,
-                        value=None,  # No default value
-                        step=1,
-                        key=key
-                    )
-
-                    if rating is not None:
-                        current_ratings[criterion['name']] = rating
-                        # Optionally, mark tab as completed (visual indication needed)
-
-            submitted = st.button("Submit Rating")
-            if submitted:
                 # Check if all criteria have been rated
-                if len(current_ratings) != len(evaluation_criteria):
-                    st.error("Please rate all criteria before submitting.")
-                else:
-                    for criterion_name, rating in current_ratings.items():
+                all_rated = all(value is not None for value in st.session_state.current_ratings.values())
+
+                # Highlight completed tabs
+                for idx, criterion in enumerate(evaluation_criteria):
+                    if st.session_state.current_ratings.get(criterion['name']) is not None:
+                        tabs[idx].markdown(f"✅ **{criterion['name']}**")
+                    else:
+                        tabs[idx].markdown(f"**{criterion['name']}**")
+
+                # Disable the submit button until all criteria are rated
+                submit_disabled = not all_rated
+                submit_button = st.form_submit_button("Submit Rating", disabled=submit_disabled)
+
+                if submit_button:
+                    # Save each criterion rating
+                    for criterion in evaluation_criteria:
+                        rating = st.session_state.current_ratings.get(criterion['name'])
                         st.session_state.responses.append({
                             'timestamp': datetime.now().isoformat(),
                             'page': 'testing',
                             'input': current_input_file.name,
                             'output': output_file.name,
                             'continuation_number': continuation_number,  # Using continuation number instead of model name
-                            'criterion': criterion_name,
+                            'criterion': criterion['name'],
                             'rating': rating
                         })
                     st.success("✅ Rating submitted successfully!")
-                    # Move to next output
-                    st.session_state.current_output_index += 1
-                    st.rerun()
+                    # Clear current ratings
+                    st.session_state.current_ratings = {}
+                    # Determine if this is the last rating
+                    is_last_input = (current_input_index == len(input_files) - 1)
+                    is_last_output = (output_index == total_outputs - 1)
+                    if is_last_input and is_last_output:
+                        # Move to loading page
+                        st.session_state.page = 'loading'
+                        st.rerun()
+                    else:
+                        # Move to next output
+                        st.session_state.current_output_index += 1
+                        st.rerun()
+        else:
+            # Move to next input
+            st.session_state.current_input_index += 1
+            st.session_state.current_output_index = 0
+            st.rerun()
     else:
         st.session_state.page = 'closing'
         st.rerun()
@@ -412,29 +415,13 @@ def closing_page():
                 })
             # Save feedback to the database
             save_feedback()
-            st.success("Your feedback has been submitted. Thank you!")
+            st.success("✅ Your feedback has been submitted. Thank you!")
             st.stop()
 
-# Navigation Logic Based on Sidebar Selection
-if choice == "Welcome":
-    st.session_state.page = 'welcome'
-elif choice == "Instructions":
-    if 'welcome' in [resp['page'] for resp in st.session_state.responses]:
-        st.session_state.page = 'instructions'
-    else:
-        st.warning("Please complete the Welcome page first.")
-elif choice == "Testing":
-    if 'instructions' in [resp['page'] for resp in st.session_state.responses]:
-        st.session_state.page = 'testing'
-    else:
-        st.warning("Please complete the Instructions page first.")
-elif choice == "Closing":
-    if 'testing' in [resp['page'] for resp in st.session_state.responses]:
-        st.session_state.page = 'closing'
-    else:
-        st.warning("Please complete the Testing section first.")
+# Initialize Database Connection
+init_db()
 
-# Render the appropriate page
+# Navigation
 if st.session_state.page == 'welcome':
     welcome_page()
 elif st.session_state.page == 'instructions':
