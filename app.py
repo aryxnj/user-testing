@@ -3,7 +3,6 @@ from sqlalchemy import create_engine, text
 from pathlib import Path
 import random
 from datetime import datetime
-import streamlit.components.v1 as components  # Import components for JS injection
 
 # Set page configuration FIRST with centered layout
 st.set_page_config(
@@ -71,7 +70,7 @@ def reset_session():
     for key in ['page', 'responses', 'current_input_index', 'current_output_index', 'input_order', 'output_orders', 'total_steps', 'submitting', 'scroll_to_top']:
         if key in st.session_state:
             del st.session_state[key]
-    st.rerun()
+    st.experimental_rerun()
 
 # Function to initialize database connection
 def init_db():
@@ -148,18 +147,18 @@ def save_feedback():
         raise e  # Add this to display full error in Streamlit logs
 
 # Function to inject JavaScript for scrolling to top
-def scroll_to_top_js():
-    if st.session_state.get('scroll_to_top', False):
-        components.html(
-            """
-            <script>
+def inject_scroll_js():
+    # Inject JavaScript with a slight delay to ensure it runs after the page is rendered
+    st.markdown(
+        """
+        <script>
+            setTimeout(function() {
                 window.scrollTo({ top: 0, behavior: 'smooth' });
-            </script>
-            """,
-            height=0,
-            width=0,
-        )
-        st.session_state.scroll_to_top = False  # Reset the flag
+            }, 100);
+        </script>
+        """,
+        unsafe_allow_html=True
+    )
 
 # Mapping of input files to their descriptive names (without number of bars)
 input_name_mapping = {
@@ -263,7 +262,7 @@ def welcome_page():
                 })
                 st.session_state.page = 'instructions'
                 st.session_state.scroll_to_top = True  # Set flag to scroll to top
-                st.rerun()
+                st.experimental_rerun()
 
 # Instructions Page
 def instructions_page():
@@ -298,7 +297,7 @@ def instructions_page():
     if st.button("✅ Begin Testing"):
         st.session_state.page = 'testing'
         st.session_state.scroll_to_top = True  # Set flag to scroll to top
-        st.rerun()
+        st.experimental_rerun()
 
 # Loading Page
 def loading_page():
@@ -308,7 +307,7 @@ def loading_page():
     # After submission, move to closing page
     st.session_state.page = 'closing'
     st.session_state.scroll_to_top = True  # Set flag to scroll to top
-    st.rerun()
+    st.experimental_rerun()
 
 # Testing Page
 def testing_page():
@@ -381,17 +380,17 @@ def testing_page():
                         # Move to next output
                         st.session_state.current_output_index += 1
                     st.session_state.scroll_to_top = True  # Set flag to scroll to top
-                    st.rerun()
+                    st.experimental_rerun()
         else:
             # Move to next input
             st.session_state.current_input_index += 1
             st.session_state.current_output_index = 0
             st.session_state.scroll_to_top = True  # Set flag to scroll to top
-            st.rerun()
+            st.experimental_rerun()
     else:
         st.session_state.page = 'closing'
         st.session_state.scroll_to_top = True  # Set flag to scroll to top
-        st.rerun()
+        st.experimental_rerun()
 
 # Closing Page
 def closing_page():
@@ -415,13 +414,10 @@ def closing_page():
             # Save feedback to the database
             save_feedback()
             st.session_state.scroll_to_top = True  # Set flag to scroll to top
-            st.rerun()
+            st.experimental_rerun()
 
 # Initialize Database Connection
 init_db()
-
-# Scroll to top if flag is set
-scroll_to_top_js()
 
 # Navigation
 if st.session_state.page == 'welcome':
@@ -436,3 +432,8 @@ elif st.session_state.page == 'closing':
     closing_page()
 else:
     st.error("Unknown page!")
+
+# Inject JavaScript to scroll to top if the flag is set
+if st.session_state.get('scroll_to_top', False):
+    inject_scroll_js()
+    st.session_state.scroll_to_top = False  # Reset the flag
