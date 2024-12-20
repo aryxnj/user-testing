@@ -11,21 +11,6 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-# Helper function to inject JavaScript for scrolling to top
-def scroll_to_top():
-    scroll_js = """
-        <script>
-            // Function to scroll to the top
-            function scrollToTop() {
-                window.scrollTo({ top: 0, behavior: 'smooth' });
-            }
-
-            // Call the function on page load
-            window.onload = scrollToTop;
-        </script>
-    """
-    st.components.v1.html(scroll_js, height=0, width=0)
-
 # Initialize session state variables
 if 'page' not in st.session_state:
     st.session_state.page = 'welcome'
@@ -410,9 +395,6 @@ def closing_page():
 
 # Initialize Database Connection
 init_db()
-
-# Inject scroll-to-top JavaScript globally
-scroll_to_top()
 
 # Navigation
 if st.session_state.page == 'welcome':
