@@ -205,9 +205,7 @@ def render_sidebar():
     st.sidebar.title("📋 Contents")
     # Add the first separator underneath the title
     st.sidebar.markdown("---")  # First Separator
-    # Add the second separator underneath the title
-    st.sidebar.markdown("---")  # Second Separator
-
+    
     pages = ["welcome", "instructions", "testing", "closing"]
     for page in pages:
         display_name = page.capitalize()
@@ -216,10 +214,10 @@ def render_sidebar():
             st.sidebar.markdown(f"### **{display_name}**")
         else:
             st.sidebar.markdown(f"{display_name}")
-
-    # Add the third separator just underneath the contents
-    st.sidebar.markdown("---")  # Third Separator
-
+    
+    # Add the second separator just underneath the contents
+    st.sidebar.markdown("---")  # Second Separator
+    
     # Only show Testing Progress or Completed when in Testing-related pages
     if st.session_state.page in ['testing', 'loading', 'closing']:
         st.sidebar.subheader("📝 Testing Progress")
@@ -346,8 +344,8 @@ def testing_page():
         current_input_file = input_files[current_input_index]
         input_name = current_input_file.name  # e.g., 'input-3.mp4'
         descriptive_name = input_name_mapping.get(input_name, input_name)
-        st.header(f"🔊 Listening to Input MIDI: {descriptive_name}")
-
+        
+        # Fetch outputs for the current input
         outputs = st.session_state.output_orders[current_input_file.name]
         output_index = st.session_state.current_output_index
         total_outputs = len(outputs)
@@ -356,11 +354,26 @@ def testing_page():
             current_output = outputs[output_index]
             continuation_number = output_index + 1  # 1 to 4
             output_file = current_output['file']
-            st.subheader(f"🎹 Continuation {continuation_number}")
+            model_name = current_output['model'].capitalize()  # e.g., 'Attention'
+
+            st.header(f"🔊 Listening to Input MIDI: {descriptive_name}")
+
+            # Conditional Rendering based on Continuation Number
+            if continuation_number == 1:
+                # For Continuation 1, display the input video normally
+                st.video(str(current_input_file))
+            else:
+                # For Continuations 2-4, display the input video inside a closed expander
+                with st.expander(f"🔍 View Input MIDI for Continuation {continuation_number}", expanded=False):
+                    st.video(str(current_input_file))
+
+            st.subheader(f"🎹 Continuation {continuation_number} - Model: {model_name}")
             st.video(str(output_file))
 
             with st.form(f"rating_form_{current_input_index}_{output_index}"):
                 st.markdown("**Please rate the following criteria:**")
+                ratings = {}  # Dictionary to hold ratings for each criterion
+
                 for criterion in evaluation_criteria:
                     st.markdown(f"### {criterion['name']}")
                     st.markdown(f"*{criterion['description']}*")
@@ -368,6 +381,8 @@ def testing_page():
                     st.markdown(f"- **1:** {criterion['scoring']['1']}")
                     st.markdown(f"- **3:** {criterion['scoring']['3']}")
                     st.markdown(f"- **5:** {criterion['scoring']['5']}")
+
+                    # Slider for rating
                     rating = st.slider(
                         f"Rate {criterion['name']}:",
                         min_value=1,
@@ -376,20 +391,25 @@ def testing_page():
                         step=1,
                         key=f"{current_input_index}_{output_index}_{criterion['name']}"
                     )
-                    # Save each criterion rating
-                    st.session_state.responses.append({
-                        'timestamp': datetime.now().isoformat(),
-                        'page': 'testing',
-                        'input': current_input_file.name,
-                        'output': output_file.name,
-                        'continuation_number': continuation_number,  # Using continuation number instead of model name
-                        'criterion': criterion['name'],
-                        'rating': rating
-                    })
+
+                    # Store the rating in the dictionary
+                    ratings[criterion['name']] = rating
                     st.markdown("---")  # Divider between criteria
 
                 submitted = st.form_submit_button("Submit Rating")
                 if submitted:
+                    # Append all ratings at once to avoid multiple entries
+                    for criterion_name, rating in ratings.items():
+                        st.session_state.responses.append({
+                            'timestamp': datetime.now().isoformat(),
+                            'page': 'testing',
+                            'input': current_input_file.name,
+                            'output': output_file.name,
+                            'continuation_number': continuation_number,
+                            'model': model_name,
+                            'criterion': criterion_name,
+                            'rating': rating
+                        })
                     st.success("✅ Rating submitted successfully!")
                     # Move to next output
                     st.session_state.current_output_index += 1
@@ -402,6 +422,7 @@ def testing_page():
     else:
         st.session_state.page = 'closing'
         st.rerun()
+
 
 # Closing Page
 def closing_page():
@@ -431,8 +452,6 @@ def render_sidebar():
     st.sidebar.title("📋 Contents")
     # Add the first separator underneath the title
     st.sidebar.markdown("---")  # First Separator
-    # Add the second separator underneath the title
-    st.sidebar.markdown("---")  # Second Separator
 
     pages = ["welcome", "instructions", "testing", "closing"]
     for page in pages:
@@ -443,8 +462,8 @@ def render_sidebar():
         else:
             st.sidebar.markdown(f"{display_name}")
 
-    # Add the third separator just underneath the contents
-    st.sidebar.markdown("---")  # Third Separator
+    # Add the second separator just underneath the contents
+    st.sidebar.markdown("---")  # Second Separator
 
     # Only show Testing Progress or Completed when in Testing-related pages
     if st.session_state.page in ['testing', 'loading', 'closing']:
