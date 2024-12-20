@@ -210,27 +210,35 @@ def render_sidebar():
             # Highlight the current page: bold and slightly larger
             st.sidebar.markdown(f"### **{display_name}**")
         else:
-            st.sidebar.markdown(f"- {display_name}")
+            st.sidebar.markdown(f"{display_name}")
     
+    # Add a separator underneath 📋 Contents
+    st.sidebar.markdown("---")  # Separator
+
     # Only show separators and Testing Progress when in Testing-related pages
     if st.session_state.page in ['testing', 'loading', 'closing']:
-        st.sidebar.markdown("---")  # Separator
-    
-        st.sidebar.subheader("📝 Testing Progress")
-        total_continuations = st.session_state.total_steps  # 16
-        # Calculate completed continuations as unique (input, output) pairs
-        completed_continuations = len({
-            (resp['input'], resp['output']) 
-            for resp in st.session_state.responses 
-            if resp['page'] == 'testing'
-        })
-        progress_text = f"{completed_continuations}/{total_continuations} Continuations Completed"
-        st.sidebar.text(progress_text)
-        progress_percentage = completed_continuations / total_continuations if total_continuations else 0
-        st.sidebar.progress(progress_percentage)
-    
+        if st.session_state.page == 'closing':
+            # Show "Completed ✅" when on the closing page
+            st.sidebar.subheader("📝 Testing Progress")
+            st.sidebar.markdown("Completed ✅")
+        else:
+            st.sidebar.subheader("📝 Testing Progress")
+            total_continuations = st.session_state.total_steps  # 16
+            # Calculate completed continuations as unique (input, output) pairs
+            completed_continuations = len({
+                (resp['input'], resp['output']) 
+                for resp in st.session_state.responses 
+                if resp['page'] == 'testing'
+            })
+            progress_text = f"{completed_continuations}/{total_continuations} Continuations Completed"
+            st.sidebar.text(progress_text)
+            progress_percentage = completed_continuations / total_continuations if total_continuations else 0
+            st.sidebar.progress(progress_percentage)
+        
+        # Add a separator before the Reset button
+        st.sidebar.markdown("---")  # Separator before the Reset button
+
     # Reset Session Button at the bottom
-    st.sidebar.markdown("---")  # Separator before the button, only shown if in Testing-related pages
     if st.sidebar.button("🔄 Reset Session"):
         reset_session()
 
@@ -423,25 +431,32 @@ def render_sidebar():
             # Highlight the current page: bold and slightly larger
             st.sidebar.markdown(f"### **{display_name}**")
         else:
-            st.sidebar.markdown(f"- {display_name}")
+            st.sidebar.markdown(f"{display_name}")
     
-    # Only show separators and Testing Progress when in Testing-related pages
-    if st.session_state.page in ['testing', 'loading', 'closing']:
-        st.sidebar.markdown("---")  # Separator
+    # Add a separator underneath 📋 Contents
+    st.sidebar.markdown("---")  # Separator
 
-        st.sidebar.subheader("📝 Testing Progress")
-        total_continuations = st.session_state.total_steps  # 16
-        # Calculate completed continuations as unique (input, output) pairs
-        completed_continuations = len({
-            (resp['input'], resp['output']) 
-            for resp in st.session_state.responses 
-            if resp['page'] == 'testing'
-        })
-        progress_text = f"{completed_continuations}/{total_continuations} Continuations Completed"
-        st.sidebar.text(progress_text)
-        progress_percentage = completed_continuations / total_continuations if total_continuations else 0
-        st.sidebar.progress(progress_percentage)
-    
+    # Only show Testing Progress or Completed when in Testing-related pages
+    if st.session_state.page in ['testing', 'loading', 'closing']:
+        if st.session_state.page == 'closing':
+            # Show "Completed ✅" when on the closing page
+            st.sidebar.subheader("📝 Testing Progress")
+            st.sidebar.markdown("Completed ✅")
+        else:
+            st.sidebar.subheader("📝 Testing Progress")
+            total_continuations = st.session_state.total_steps  # 16
+            # Calculate completed continuations as unique (input, output) pairs
+            completed_continuations = len({
+                (resp['input'], resp['output']) 
+                for resp in st.session_state.responses 
+                if resp['page'] == 'testing'
+            })
+            progress_text = f"{completed_continuations}/{total_continuations} Continuations Completed"
+            st.sidebar.text(progress_text)
+            progress_percentage = completed_continuations / total_continuations if total_continuations else 0
+            st.sidebar.progress(progress_percentage)
+        
+        # Add a separator before the Reset button
         st.sidebar.markdown("---")  # Separator before the Reset button
 
     # Reset Session Button at the bottom
