@@ -289,7 +289,7 @@ def loading_page():
     st.session_state.page = 'closing'
     st.rerun()
 
-# Testing Page with Tabs
+# Testing Page
 def testing_page():
     input_files = st.session_state.input_order
     current_input_index = st.session_state.current_input_index
@@ -318,62 +318,37 @@ def testing_page():
             st.subheader(f"🎹 Continuation {continuation_number}")
             st.video(str(output_file))
 
-            # Initialize a dictionary to store ratings for each criterion
-            if 'current_ratings' not in st.session_state:
-                st.session_state.current_ratings = {}
-
             with st.form(f"rating_form_{current_input_index}_{output_index}"):
                 st.markdown("**Please rate the following criteria:**")
-                
-                # Create tabs for each evaluation criterion
-                tabs = st.tabs([criterion['name'] for criterion in evaluation_criteria])
-                
-                for idx, criterion in enumerate(evaluation_criteria):
-                    with tabs[idx]:
-                        st.markdown(f"*{criterion['description']}*")
-                        # Use radio buttons with an initial "Not Selected" option
-                        rating = st.radio(
-                            f"Rate {criterion['name']}:",
-                            options=["Select", "1", "2", "3", "4", "5"],
-                            index=0,
-                            key=f"{current_input_index}_{output_index}_{criterion['name']}"
-                        )
-                        if rating != "Select":
-                            st.session_state.current_ratings[criterion['name']] = int(rating)
-                        else:
-                            st.session_state.current_ratings[criterion['name']] = None
-                        st.markdown("---")  # Divider between criteria
-
-                # Check if all criteria have been rated
-                all_rated = all(value is not None for value in st.session_state.current_ratings.values())
-
-                # Highlight completed tabs
-                for idx, criterion in enumerate(evaluation_criteria):
-                    if st.session_state.current_ratings.get(criterion['name']) is not None:
-                        tabs[idx].markdown(f"✅ **{criterion['name']}**")
-                    else:
-                        tabs[idx].markdown(f"**{criterion['name']}**")
-
-                # Disable the submit button until all criteria are rated
-                submit_disabled = not all_rated
-                submit_button = st.form_submit_button("Submit Rating", disabled=submit_disabled)
-
-                if submit_button:
+                for criterion in evaluation_criteria:
+                    st.markdown(f"### {criterion['name']}")
+                    st.markdown(f"*{criterion['description']}*")
+                    st.markdown("**Scoring:**")
+                    st.markdown(f"- **1:** {criterion['scoring']['1']}")
+                    st.markdown(f"- **3:** {criterion['scoring']['3']}")
+                    st.markdown(f"- **5:** {criterion['scoring']['5']}")
+                    rating = st.slider(
+                        f"Rate {criterion['name']}:",
+                        min_value=1,
+                        max_value=5,
+                        value=3,
+                        step=1,
+                        key=f"{current_input_index}_{output_index}_{criterion['name']}"
+                    )
                     # Save each criterion rating
-                    for criterion in evaluation_criteria:
-                        rating = st.session_state.current_ratings.get(criterion['name'])
-                        st.session_state.responses.append({
-                            'timestamp': datetime.now().isoformat(),
-                            'page': 'testing',
-                            'input': current_input_file.name,
-                            'output': output_file.name,
-                            'continuation_number': continuation_number,  # Using continuation number instead of model name
-                            'criterion': criterion['name'],
-                            'rating': rating
-                        })
-                    st.success("✅ Rating submitted successfully!")
-                    # Clear current ratings
-                    st.session_state.current_ratings = {}
+                    st.session_state.responses.append({
+                        'timestamp': datetime.now().isoformat(),
+                        'page': 'testing',
+                        'input': current_input_file.name,
+                        'output': output_file.name,
+                        'continuation_number': continuation_number,  # Using continuation number instead of model name
+                        'criterion': criterion['name'],
+                        'rating': rating
+                    })
+                    st.markdown("---")  # Divider between criteria
+
+                submitted = st.form_submit_button("Submit Rating")
+                if submitted:
                     # Determine if this is the last rating
                     is_last_input = (current_input_index == len(input_files) - 1)
                     is_last_output = (output_index == total_outputs - 1)
@@ -382,6 +357,7 @@ def testing_page():
                         st.session_state.page = 'loading'
                         st.rerun()
                     else:
+                        st.success("✅ Rating submitted successfully!")
                         # Move to next output
                         st.session_state.current_output_index += 1
                         st.rerun()
@@ -415,7 +391,6 @@ def closing_page():
                 })
             # Save feedback to the database
             save_feedback()
-            st.success("✅ Your feedback has been submitted. Thank you!")
             st.stop()
 
 # Initialize Database Connection
