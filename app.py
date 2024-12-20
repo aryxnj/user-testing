@@ -372,29 +372,32 @@ def testing_page():
 
             with st.form(f"rating_form_{current_input_index}_{output_index}"):
                 st.markdown("**Please rate the following criteria:**")
+                
+                # Create tabs for each evaluation criterion
+                tabs = st.tabs([criterion['name'] for criterion in evaluation_criteria])
+
                 ratings = {}  # Dictionary to hold ratings for each criterion
 
-                for criterion in evaluation_criteria:
-                    st.markdown(f"### {criterion['name']}")
-                    st.markdown(f"*{criterion['description']}*")
-                    st.markdown("**Scoring:**")
-                    st.markdown(f"- **1:** {criterion['scoring']['1']}")
-                    st.markdown(f"- **3:** {criterion['scoring']['3']}")
-                    st.markdown(f"- **5:** {criterion['scoring']['5']}")
-
-                    # Slider for rating
-                    rating = st.slider(
-                        f"Rate {criterion['name']}:",
-                        min_value=1,
-                        max_value=5,
-                        value=3,
-                        step=1,
-                        key=f"{current_input_index}_{output_index}_{criterion['name']}"
-                    )
-
-                    # Store the rating in the dictionary
-                    ratings[criterion['name']] = rating
-                    st.markdown("---")  # Divider between criteria
+                for tab, criterion in zip(tabs, evaluation_criteria):
+                    with tab:
+                        st.markdown(f"*{criterion['description']}*")
+                        st.markdown("**Scoring:**")
+                        st.markdown(f"- **1:** {criterion['scoring']['1']}")
+                        st.markdown(f"- **3:** {criterion['scoring']['3']}")
+                        st.markdown(f"- **5:** {criterion['scoring']['5']}")
+                        
+                        # Slider for rating
+                        rating = st.slider(
+                            f"Rate {criterion['name']}:",
+                            min_value=1,
+                            max_value=5,
+                            value=3,
+                            step=1,
+                            key=f"{current_input_index}_{output_index}_{criterion['name']}"
+                        )
+                        
+                        # Store the rating in the dictionary
+                        ratings[criterion['name']] = rating
 
                 submitted = st.form_submit_button("Submit Rating")
                 if submitted:
