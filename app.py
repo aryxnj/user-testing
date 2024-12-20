@@ -1,16 +1,75 @@
 import streamlit as st
+import streamlit.components.v1 as components
 from sqlalchemy import create_engine, text
 from pathlib import Path
 import random
 from datetime import datetime
 
-# Set page configuration FIRST with centered layout
+# ----------------------------------------------
+# 1. Page Configuration and Initial Setup
+# ----------------------------------------------
+# Set page configuration with centered layout
 st.set_page_config(
     page_title="AI Music Assistant User Testing",
     layout="centered",
     initial_sidebar_state="collapsed"
 )
 
+# ----------------------------------------------
+# 2. Hidden Anchor and Scroll Button
+# ----------------------------------------------
+# Add a hidden anchor at the very top of the page
+st.markdown('<a id="top"></a>', unsafe_allow_html=True)
+
+# Style for the hidden scroll button (not visible to users)
+st.markdown(
+    """
+    <style>
+    .hidden-scroll-button {
+        display: none;
+    }
+    </style>
+    """,
+    unsafe_allow_html=True
+)
+
+# Add a hidden HTML link styled as a button to scroll to top
+st.markdown(
+    """
+    <a href="#top" class="hidden-scroll-button" id="scrollToTopButton">Scroll to Top</a>
+    """,
+    unsafe_allow_html=True
+)
+
+# ----------------------------------------------
+# 3. JavaScript Injection for Automatic Scrolling
+# ----------------------------------------------
+# Inject JavaScript to automatically click the hidden scroll button after a small delay
+components.html(
+    """
+    <script>
+        // Function to automatically click the scroll button
+        function autoScrollToTop() {
+            var scrollButton = document.getElementById('scrollToTopButton');
+            if (scrollButton) {
+                scrollButton.click();
+                console.log("Auto scroll to top triggered.");
+            }
+        }
+
+        // Execute the function after the page has fully loaded
+        window.addEventListener('load', function() {
+            setTimeout(autoScrollToTop, 100); // Adjust delay as needed
+        });
+    </script>
+    """,
+    height=0,
+    width=0
+)
+
+# ----------------------------------------------
+# 4. Session State Initialization
+# ----------------------------------------------
 # Initialize session state variables
 if 'page' not in st.session_state:
     st.session_state.page = 'welcome'
@@ -62,12 +121,15 @@ if 'total_steps' not in st.session_state:
     num_outputs = 4  # Assuming 4 models per input
     st.session_state.total_steps = 2 + (num_inputs * num_outputs) + 1  # welcome, instructions, closing
 
+# ----------------------------------------------
+# 5. Helper Functions
+# ----------------------------------------------
 # Function to reset the session (for testing purposes)
 def reset_session():
-    for key in ['page', 'responses', 'current_input_index', 'current_output_index', 'input_order', 'output_orders', 'total_steps', 'submitting']:
+    for key in ['page', 'responses', 'current_input_index', 'current_output_index', 'input_order', 'output_orders', 'total_steps']:
         if key in st.session_state:
             del st.session_state[key]
-    st.rerun()
+    st.experimental_rerun()
 
 # Function to initialize database connection
 def init_db():
@@ -143,6 +205,9 @@ def save_feedback():
         st.error(f"Error saving feedback: {e}")
         raise e  # Add this to display full error in Streamlit logs
 
+# ----------------------------------------------
+# 6. Mapping and Evaluation Criteria
+# ----------------------------------------------
 # Mapping of input files to their descriptive names (without number of bars)
 input_name_mapping = {
     "input-3.mp4": "Familiar Tonal Snippet",
@@ -200,9 +265,11 @@ evaluation_criteria = [
     }
 ]
 
+# ----------------------------------------------
+# 7. Page Definitions
+# ----------------------------------------------
 # Welcome Page
 def welcome_page():
-    # Insert content at the top
     st.image("banner.png", use_container_width=True)  # Ensure 'banner.png' exists in your project directory
     st.title("🎵 Welcome to the AI Music Assistant User Testing 🎵")
     st.markdown("""
@@ -237,7 +304,7 @@ def welcome_page():
                 st.error("Please select your gender.")
             else:
                 # Save user info with timestamp
-                st.session_state.responses.insert(0, {  # Insert at the beginning
+                st.session_state.responses.append({
                     'timestamp': datetime.now().isoformat(),
                     'page': 'welcome',
                     'musical_background': musical_background,
@@ -245,11 +312,10 @@ def welcome_page():
                     'gender': gender
                 })
                 st.session_state.page = 'instructions'
-                st.rerun()
+                st.experimental_rerun()
 
 # Instructions Page
 def instructions_page():
-    # Insert content at the top
     st.title("📋 Testing Protocol Instructions 📋")
     st.markdown("""
         ### Scoring Method
@@ -281,7 +347,7 @@ def instructions_page():
 
     if st.button("✅ Begin Testing"):
         st.session_state.page = 'testing'
-        st.rerun()
+        st.experimental_rerun()
 
 # Loading Page
 def loading_page():
@@ -290,7 +356,7 @@ def loading_page():
         save_ratings()
     # After submission, move to closing page
     st.session_state.page = 'closing'
-    st.rerun()
+    st.experimental_rerun()
 
 # Testing Page
 def testing_page():
@@ -339,7 +405,7 @@ def testing_page():
                         key=f"{current_input_index}_{output_index}_{criterion['name']}"
                     )
                     # Save each criterion rating
-                    st.session_state.responses.insert(0, {  # Insert at the beginning
+                    st.session_state.responses.append({
                         'timestamp': datetime.now().isoformat(),
                         'page': 'testing',
                         'input': current_input_file.name,
@@ -362,15 +428,15 @@ def testing_page():
                         st.success("✅ Rating submitted successfully!")
                         # Move to next output
                         st.session_state.current_output_index += 1
-                    st.rerun()
+                    st.experimental_rerun()
         else:
             # Move to next input
             st.session_state.current_input_index += 1
             st.session_state.current_output_index = 0
-            st.rerun()
+            st.experimental_rerun()
     else:
         st.session_state.page = 'closing'
-        st.rerun()
+        st.experimental_rerun()
 
 # Closing Page
 def closing_page():
@@ -386,21 +452,25 @@ def closing_page():
         submitted = st.form_submit_button("📤 Submit and Exit")
         if submitted:
             if feedback:
-                st.session_state.responses.insert(0, {  # Insert at the beginning
+                st.session_state.responses.append({
                     'timestamp': datetime.now().isoformat(),
                     'page': 'feedback',
                     'feedback': feedback
                 })
             # Save feedback to the database
             save_feedback()
-            st.rerun()
+            st.experimental_rerun()
 
+# ----------------------------------------------
+# 8. Database Initialization
+# ----------------------------------------------
 # Initialize Database Connection
 init_db()
 
-# Mapping of input files to their descriptive names is already defined above
-
-# Navigation
+# ----------------------------------------------
+# 9. Navigation
+# ----------------------------------------------
+# Navigate to the appropriate page based on session state
 if st.session_state.page == 'welcome':
     welcome_page()
 elif st.session_state.page == 'instructions':
@@ -414,6 +484,9 @@ elif st.session_state.page == 'closing':
 else:
     st.error("Unknown page!")
 
+# ----------------------------------------------
+# 10. Scroll-to-Top Button Styling and Placement
+# ----------------------------------------------
 # Add the scroll-to-top button after all content
 st.markdown(
     """
@@ -433,13 +506,41 @@ st.markdown(
         cursor: pointer;
         box-shadow: 0 4px 6px rgba(0,0,0,0.3);
         transition: background-color 0.3s;
+        z-index: 1000;
     }
 
     .scroll-button:hover {
         background-color: #45a049;
     }
     </style>
-    <a href="#top" class="scroll-button" title="Scroll to Top">↑</a>
+    <a href="#top" class="scroll-button" id="scrollToTopButton" title="Scroll to Top">↑</a>
     """,
     unsafe_allow_html=True
+)
+
+# ----------------------------------------------
+# 11. Automatic Scroll Trigger via JavaScript
+# ----------------------------------------------
+# Inject JavaScript to automatically click the scroll button after a small delay
+components.html(
+    """
+    <script>
+        // Function to automatically click the scroll button
+        function autoScrollToTop() {
+            var scrollButton = document.getElementById('scrollToTopButton');
+            if (scrollButton) {
+                scrollButton.click();
+                console.log("Auto scroll to top triggered.");
+            }
+        }
+
+        // Execute the function after the page has fully loaded
+        window.addEventListener('load', function() {
+            // Delay to ensure all elements are rendered
+            setTimeout(autoScrollToTop, 100); // Adjust delay as needed
+        });
+    </script>
+    """,
+    height=0,
+    width=0
 )
