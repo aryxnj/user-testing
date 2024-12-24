@@ -64,10 +64,10 @@ if 'total_steps' not in st.session_state:
 
 # Function to reset the session (for testing purposes)
 def reset_session():
-    for key in ['page', 'responses', 'current_input_index', 'current_output_index', 'input_order', 'output_orders', 'total_steps', 'submitting']:
+    for key in ['page', 'responses', 'current_input_index', 'current_output_index', 'input_order', 'output_orders', 'total_steps', 'submitting', 'current_criterion_index', 'ratings']:
         if key in st.session_state:
             del st.session_state[key]
-    st.rerun()
+    st.experimental_rerun()
 
 # Function to initialize database connection
 def init_db():
@@ -106,14 +106,14 @@ def save_ratings():
             for response in st.session_state.responses:
                 if response['page'] == 'testing':
                     insert_query = text("""
-                        INSERT INTO user_ratings (timestamp, input_file, output_file, continuation_number, criterion, rating)
-                        VALUES (:timestamp, :input_file, :output_file, :continuation_number, :criterion, :rating)
+                        INSERT INTO user_ratings (timestamp, input_file, output_file, model, criterion, rating)
+                        VALUES (:timestamp, :input_file, :output_file, :model, :criterion, :rating)
                     """)
                     connection.execute(insert_query, {
                         'timestamp': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
                         'input_file': response.get('input', ''),
                         'output_file': response.get('output', ''),
-                        'continuation_number': response.get('continuation_number', 0),
+                        'model': response.get('model', ''),
                         'criterion': response.get('criterion', ''),
                         'rating': response.get('rating', 0)
                     })
@@ -200,6 +200,52 @@ evaluation_criteria = [
     }
 ]
 
+# Function to render the sidebar
+def render_sidebar():
+    st.sidebar.title("📋 Contents")
+    # Add the first separator underneath the title
+    st.sidebar.markdown("---")  # First Separator
+    
+    pages = ["welcome", "instructions", "testing", "closing"]
+    for page in pages:
+        display_name = page.capitalize()
+        if st.session_state.page == page:
+            # Highlight the current page: bold and slightly larger
+            st.sidebar.markdown(f"### **{display_name}**")
+        else:
+            st.sidebar.markdown(f"{display_name}")
+    
+    # Add the second separator just underneath the contents
+    st.sidebar.markdown("---")  # Second Separator
+    
+    # Only show Testing Progress or Completed when in Testing-related pages
+    if st.session_state.page in ['testing', 'loading', 'closing']:
+        st.sidebar.subheader("📝 Testing Progress")
+        if st.session_state.page == 'closing':
+            # Show "Completed ✅" when on the closing page
+            st.sidebar.markdown("Completed ✅")
+            # Set progress bar to 100%
+            st.sidebar.progress(1.0)
+        else:
+            total_continuations = st.session_state.total_steps  # 16
+            # Calculate completed continuations as unique (input, output) pairs
+            completed_continuations = len({
+                (resp['input'], resp['output']) 
+                for resp in st.session_state.responses 
+                if resp['page'] == 'testing'
+            })
+            progress_text = f"{completed_continuations}/{total_continuations} Continuations Completed"
+            st.sidebar.text(progress_text)
+            progress_percentage = completed_continuations / total_continuations if total_continuations else 0
+            st.sidebar.progress(progress_percentage)
+        
+        # Add a separator before the Reset button
+        st.sidebar.markdown("---")  # Separator before the Reset button
+
+    # Reset Session Button at the bottom
+    if st.sidebar.button("🔄 Reset Session"):
+        reset_session()
+
 # Welcome Page
 def welcome_page():
     st.image("banner.png", use_container_width=True)  # Ensure 'banner.png' exists in your project directory
@@ -244,7 +290,7 @@ def welcome_page():
                     'gender': gender
                 })
                 st.session_state.page = 'instructions'
-                st.rerun()
+                st.experimental_rerun()
 
 # Instructions Page
 def instructions_page():
@@ -278,7 +324,7 @@ def instructions_page():
     """)
     if st.button("✅ Begin Testing"):
         st.session_state.page = 'testing'
-        st.rerun()
+        st.experimental_rerun()
 
 # Loading Page
 def loading_page():
@@ -287,10 +333,9 @@ def loading_page():
         save_ratings()
     # After submission, move to closing page
     st.session_state.page = 'closing'
-    st.rerun()
+    st.experimental_rerun()
 
-# Testing Page
-# Testing Page with Tabs for Evaluation Criteria
+# Testing Page with Modified Tabs
 def testing_page():
     input_files = st.session_state.input_order
     current_input_index = st.session_state.current_input_index
@@ -313,12 +358,10 @@ def testing_page():
 
             st.header(f"🔊 Listening to Input MIDI: {descriptive_name}")
 
-            # Conditional Rendering based on Continuation Number
+            # Display Input Video
             if continuation_number == 1:
-                # For Continuation 1, display the input video normally
                 st.video(str(current_input_file))
             else:
-                # For Continuations 2-4, display the input video inside a closed expander
                 with st.expander(f"🔍 View Input MIDI for Continuation {continuation_number}", expanded=False):
                     st.video(str(current_input_file))
 
@@ -333,7 +376,7 @@ def testing_page():
 
                 ratings = {}  # Dictionary to hold ratings for each criterion
 
-                for tab, criterion in zip(tabs, evaluation_criteria):
+                for i, (tab, criterion) in enumerate(zip(tabs, evaluation_criteria)):
                     with tab:
                         st.markdown(f"*{criterion['description']}*")
                         st.markdown("**Scoring:**")
@@ -354,33 +397,51 @@ def testing_page():
                         # Store the rating in the dictionary
                         ratings[criterion['name']] = rating
 
-                submitted = st.form_submit_button("Submit Rating")
-                if submitted:
-                    # Append all ratings at once to avoid multiple entries
-                    for criterion_name, rating in ratings.items():
-                        st.session_state.responses.append({
-                            'timestamp': datetime.now().isoformat(),
-                            'page': 'testing',
-                            'input': current_input_file.name,
-                            'output': output_file.name,
-                            'continuation_number': continuation_number,
-                            'model': model_name,
-                            'criterion': criterion_name,
-                            'rating': rating
-                        })
-                    st.success("✅ Rating submitted successfully!")
-                    # Move to next output
-                    st.session_state.current_output_index += 1
-                    st.rerun()
+                        # Button logic
+                        if i < len(evaluation_criteria) - 1:
+                            # For all but the last criterion, show "Next" button
+                            next_submitted = st.form_submit_button("➡️ Next", key=f"next_{current_input_index}_{output_index}_{criterion['name']}")
+                            if next_submitted:
+                                # Save the current rating
+                                st.session_state.responses.append({
+                                    'timestamp': datetime.now().isoformat(),
+                                    'page': 'testing',
+                                    'input': current_input_file.name,
+                                    'output': output_file.name,
+                                    'continuation_number': continuation_number,
+                                    'model': model_name,
+                                    'criterion': criterion['name'],
+                                    'rating': rating
+                                })
+                                st.experimental_rerun()
+                        else:
+                            # For the last criterion, show "Submit" button
+                            submit_submitted = st.form_submit_button("✅ Submit", key=f"submit_{current_input_index}_{output_index}_{criterion['name']}")
+                            if submit_submitted:
+                                # Save the current rating
+                                st.session_state.responses.append({
+                                    'timestamp': datetime.now().isoformat(),
+                                    'page': 'testing',
+                                    'input': current_input_file.name,
+                                    'output': output_file.name,
+                                    'continuation_number': continuation_number,
+                                    'model': model_name,
+                                    'criterion': criterion['name'],
+                                    'rating': rating
+                                })
+                                st.success("✅ Rating submitted successfully!")
+                                # Move to next output
+                                st.session_state.current_output_index += 1
+                                st.experimental_rerun()
+                # End of form
         else:
             # Move to next input
             st.session_state.current_input_index += 1
             st.session_state.current_output_index = 0
-            st.rerun()
+            st.experimental_rerun()
     else:
         st.session_state.page = 'closing'
-        st.rerun()
-
+        st.experimental_rerun()
 
 # Closing Page
 def closing_page():
@@ -403,53 +464,8 @@ def closing_page():
                 })
             # Save feedback to the database
             save_feedback()
+            st.success("✅ Your feedback has been submitted. Thank you!")
             st.stop()
-
-# Function to render the sidebar
-def render_sidebar():
-    st.sidebar.title("📋 Contents")
-    # Add the first separator underneath the title
-    st.sidebar.markdown("---")  # First Separator
-
-    pages = ["welcome", "instructions", "testing", "closing"]
-    for page in pages:
-        display_name = page.capitalize()
-        if st.session_state.page == page:
-            # Highlight the current page: bold and slightly larger
-            st.sidebar.markdown(f"### **{display_name}**")
-        else:
-            st.sidebar.markdown(f"{display_name}")
-
-    # Add the second separator just underneath the contents
-    st.sidebar.markdown("---")  # Second Separator
-
-    # Only show Testing Progress or Completed when in Testing-related pages
-    if st.session_state.page in ['testing', 'loading', 'closing']:
-        st.sidebar.subheader("📝 Testing Progress")
-        if st.session_state.page == 'closing':
-            # Show "Completed ✅" when on the closing page
-            st.sidebar.markdown("Completed ✅")
-            # Set progress bar to 100%
-            st.sidebar.progress(1.0)
-        else:
-            total_continuations = st.session_state.total_steps  # 16
-            # Calculate completed continuations as unique (input, output) pairs
-            completed_continuations = len({
-                (resp['input'], resp['output']) 
-                for resp in st.session_state.responses 
-                if resp['page'] == 'testing'
-            })
-            progress_text = f"{completed_continuations}/{total_continuations} Continuations Completed"
-            st.sidebar.text(progress_text)
-            progress_percentage = completed_continuations / total_continuations if total_continuations else 0
-            st.sidebar.progress(progress_percentage)
-        
-        # Add a separator before the Reset button
-        st.sidebar.markdown("---")  # Separator before the Reset button
-
-    # Reset Session Button at the bottom
-    if st.sidebar.button("🔄 Reset Session"):
-        reset_session()
 
 # Initialize Database Connection
 init_db()
