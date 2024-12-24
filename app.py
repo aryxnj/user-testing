@@ -64,7 +64,7 @@ if 'total_steps' not in st.session_state:
 
 # Function to reset the session (for testing purposes)
 def reset_session():
-    for key in ['page', 'responses', 'current_input_index', 'current_output_index', 'input_order', 'output_orders', 'total_steps', 'submitting', 'current_criterion_index', 'ratings']:
+    for key in ['page', 'responses', 'current_input_index', 'current_output_index', 'input_order', 'output_orders', 'total_steps', 'submitting']:
         if key in st.session_state:
             del st.session_state[key]
     st.rerun()
@@ -106,13 +106,14 @@ def save_ratings():
             for response in st.session_state.responses:
                 if response['page'] == 'testing':
                     insert_query = text("""
-                        INSERT INTO user_ratings (timestamp, input_file, output_file, model, criterion, rating)
-                        VALUES (:timestamp, :input_file, :output_file, :model, :criterion, :rating)
+                        INSERT INTO user_ratings (timestamp, input_file, output_file, continuation_number, model, criterion, rating)
+                        VALUES (:timestamp, :input_file, :output_file, :continuation_number, :model, :criterion, :rating)
                     """)
                     connection.execute(insert_query, {
                         'timestamp': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
                         'input_file': response.get('input', ''),
                         'output_file': response.get('output', ''),
+                        'continuation_number': response.get('continuation_number', 0),
                         'model': response.get('model', ''),
                         'criterion': response.get('criterion', ''),
                         'rating': response.get('rating', 0)
@@ -335,7 +336,8 @@ def loading_page():
     st.session_state.page = 'closing'
     st.rerun()
 
-# Testing Page with Tabs and Next/Submit Buttons
+# Testing Page
+# Testing Page with Tabs for Evaluation Criteria
 def testing_page():
     input_files = st.session_state.input_order
     current_input_index = st.session_state.current_input_index
@@ -358,73 +360,73 @@ def testing_page():
 
             st.header(f"🔊 Listening to Input MIDI: {descriptive_name}")
 
-            # Display Input Video
+            # Conditional Rendering based on Continuation Number
             if continuation_number == 1:
+                # For Continuation 1, display the input video normally
                 st.video(str(current_input_file))
             else:
+                # For Continuations 2-4, display the input video inside a closed expander
                 with st.expander(f"🔍 View Input MIDI for Continuation {continuation_number}", expanded=False):
                     st.video(str(current_input_file))
 
             st.subheader(f"🎹 Continuation {continuation_number} - Model: {model_name}")
             st.video(str(output_file))
 
-            # Create tabs for each evaluation criterion
-            tab_labels = [criterion['name'] for criterion in evaluation_criteria]
-            tabs = st.tabs(tab_labels)
-
-            for idx, (tab, criterion) in enumerate(zip(tabs, evaluation_criteria)):
-                with tab:
-                    st.markdown(f"**{criterion['name']}**")
-                    st.markdown(f"*{criterion['description']}*")
-                    st.markdown("**Scoring:**")
-                    st.markdown(f"- **1:** {criterion['scoring']['1']}")
-                    st.markdown(f"- **3:** {criterion['scoring']['3']}")
-                    st.markdown(f"- **5:** {criterion['scoring']['5']}")
-
-                    # Slider for rating
-                    rating = st.slider(
+            with st.form(f"rating_form_{current_input_index}_{output_index}"):
+                st.markdown("**Please rate the following criteria:**")
+                
+                # Determine if any criteria are unanswered
+                ratings = {}
+                criteria_status = {}
+                for criterion in evaluation_criteria:
+                    key = f"{current_input_index}_{output_index}_{criterion['name']}"
+                    rating = st.selectbox(
                         f"Rate {criterion['name']}:",
-                        min_value=1,
-                        max_value=5,
-                        value=3,
-                        step=1,
-                        key=f"{current_input_index}_{output_index}_{criterion['name']}"
+                        options=["Select a rating", "1", "2", "3", "4", "5"],
+                        index=0,
+                        key=key
                     )
-
-                    # Button logic
-                    if idx < len(evaluation_criteria) - 1:
-                        # For all but the last criterion, show "Next" button
-                        if st.button("➡️ Next", key=f"next_{current_input_index}_{output_index}_{criterion['name']}"):
-                            # Save the current rating
-                            st.session_state.responses.append({
-                                'timestamp': datetime.now().isoformat(),
-                                'page': 'testing',
-                                'input': current_input_file.name,
-                                'output': output_file.name,
-                                'continuation_number': continuation_number,
-                                'model': model_name,
-                                'criterion': criterion['name'],
-                                'rating': rating
-                            })
-                            st.success(f"✅ {criterion['name']} rating submitted. Please proceed to the next tab.")
+                    if rating == "Select a rating":
+                        criteria_status[criterion['name']] = False
                     else:
-                        # For the last criterion, show "Submit" button
-                        if st.button("✅ Submit", key=f"submit_{current_input_index}_{output_index}_{criterion['name']}"):
-                            # Save the current rating
-                            st.session_state.responses.append({
-                                'timestamp': datetime.now().isoformat(),
-                                'page': 'testing',
-                                'input': current_input_file.name,
-                                'output': output_file.name,
-                                'continuation_number': continuation_number,
-                                'model': model_name,
-                                'criterion': criterion['name'],
-                                'rating': rating
-                            })
-                            st.success("✅ All ratings submitted successfully!")
-                            # Move to next output
-                            st.session_state.current_output_index += 1
-                            st.rerun()
+                        criteria_status[criterion['name']] = True
+                        ratings[criterion['name']] = int(rating)
+
+                # Highlight tabs with unanswered criteria
+                tabs = st.tabs([f"{criterion['name']} {'⚠️' if not criteria_status[criterion['name']] else ''}" for criterion in evaluation_criteria])
+
+                # Move the rating selection inside the tabs
+                for tab, criterion in zip(tabs, evaluation_criteria):
+                    with tab:
+                        key = f"{current_input_index}_{output_index}_{criterion['name']}"
+                        rating = st.session_state.get(key, "Select a rating")
+                        if rating != "Select a rating":
+                            st.markdown(f"**Selected Rating:** {rating}")
+                        else:
+                            st.markdown("**Please select a rating.**")
+
+                # Submit button is enabled only if all criteria are answered
+                all_answered = all(criteria_status.values())
+                if not all_answered:
+                    st.warning("⚠️ Please rate all criteria before submitting.")
+                submitted = st.form_submit_button("Submit Rating", disabled=not all_answered)
+                if submitted and all_answered:
+                    # Append all ratings at once to avoid multiple entries
+                    for criterion_name, rating in ratings.items():
+                        st.session_state.responses.append({
+                            'timestamp': datetime.now().isoformat(),
+                            'page': 'testing',
+                            'input': current_input_file.name,
+                            'output': output_file.name,
+                            'continuation_number': continuation_number,
+                            'model': model_name,
+                            'criterion': criterion_name,
+                            'rating': rating
+                        })
+                    st.success("✅ Rating submitted successfully!")
+                    # Move to next output
+                    st.session_state.current_output_index += 1
+                    st.rerun()
         else:
             # Move to next input
             st.session_state.current_input_index += 1
@@ -455,7 +457,6 @@ def closing_page():
                 })
             # Save feedback to the database
             save_feedback()
-            st.success("✅ Your feedback has been submitted. Thank you!")
             st.stop()
 
 # Initialize Database Connection
