@@ -200,52 +200,6 @@ evaluation_criteria = [
     }
 ]
 
-# Function to render the sidebar
-def render_sidebar():
-    st.sidebar.title("📋 Contents")
-    # Add the first separator underneath the title
-    st.sidebar.markdown("---")  # First Separator
-    
-    pages = ["welcome", "instructions", "testing", "closing"]
-    for page in pages:
-        display_name = page.capitalize()
-        if st.session_state.page == page:
-            # Highlight the current page: bold and slightly larger
-            st.sidebar.markdown(f"### **{display_name}**")
-        else:
-            st.sidebar.markdown(f"{display_name}")
-    
-    # Add the second separator just underneath the contents
-    st.sidebar.markdown("---")  # Second Separator
-    
-    # Only show Testing Progress or Completed when in Testing-related pages
-    if st.session_state.page in ['testing', 'loading', 'closing']:
-        st.sidebar.subheader("📝 Testing Progress")
-        if st.session_state.page == 'closing':
-            # Show "Completed ✅" when on the closing page
-            st.sidebar.markdown("Completed ✅")
-            # Set progress bar to 100%
-            st.sidebar.progress(1.0)
-        else:
-            total_continuations = st.session_state.total_steps  # 16
-            # Calculate completed continuations as unique (input, output) pairs
-            completed_continuations = len({
-                (resp['input'], resp['output']) 
-                for resp in st.session_state.responses 
-                if resp['page'] == 'testing'
-            })
-            progress_text = f"{completed_continuations}/{total_continuations} Continuations Completed"
-            st.sidebar.text(progress_text)
-            progress_percentage = completed_continuations / total_continuations if total_continuations else 0
-            st.sidebar.progress(progress_percentage)
-        
-        # Add a separator before the Reset button
-        st.sidebar.markdown("---")  # Separator before the Reset button
-
-    # Reset Session Button at the bottom
-    if st.sidebar.button("🔄 Reset Session"):
-        reset_session()
-
 # Welcome Page
 def welcome_page():
     st.image("banner.png", use_container_width=True)  # Ensure 'banner.png' exists in your project directory
