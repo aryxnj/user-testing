@@ -400,7 +400,7 @@ def testing_page():
                         # Store the rating in the dictionary
                         ratings[criterion['name']] = rating
 
-                submitted = st.form_submit_button("Submit Rating")
+                submitted = st.form_submit_button("Submit Ratings")
                 if submitted:
                     # Check for unanswered criteria
                     for criterion_name, rating in ratings.items():
@@ -423,7 +423,7 @@ def testing_page():
                                 'criterion': criterion_name,
                                 'rating': rating
                             })
-                        st.success("✅ Rating submitted successfully!")
+                        st.success("✅ Ratings submitted successfully!")
                         # Move to next output
                         st.session_state.current_output_index += 1
                         st.rerun()
