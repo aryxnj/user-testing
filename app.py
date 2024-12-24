@@ -65,7 +65,7 @@ if 'total_steps' not in st.session_state:
 
 # Function to reset the session
 def reset_session():
-    for key in ['page', 'responses', 'current_input_index', 'current_output_index', 'input_order', 'output_orders', 'total_steps']:
+    for key in ['page', 'responses', 'current_input_index', 'current_output_index', 'input_order', 'output_orders', 'total_steps', 'ratings_saved']:
         if key in st.session_state:
             del st.session_state[key]
     st.rerun()
@@ -118,9 +118,7 @@ def save_ratings():
                         'criterion': response.get('criterion', ''),
                         'rating': response.get('rating', 0)
                     })
-        # Navigate to closing page after saving
-        st.session_state.page = 'closing'
-        st.rerun()
+        st.session_state.ratings_saved = True  # Set flag to indicate saving is done
     except Exception as e:
         st.error(f"Error saving ratings: {e}")
 
@@ -143,9 +141,6 @@ def save_feedback():
                         'feedback': response.get('feedback', '')
                     })
         st.success("✅ Your feedback has been submitted successfully.")
-        # Navigate to closing page
-        st.session_state.page = 'closing'
-        st.rerun()
     except Exception as e:
         st.error(f"Error saving feedback: {e}")
 
@@ -212,7 +207,7 @@ def render_sidebar():
     # First separator
     st.sidebar.markdown("---")
     
-    pages = ["welcome", "instructions", "testing", "closing"]
+    pages = ["welcome", "instructions", "testing", "loading", "closing"]
     for page in pages:
         display_name = page.capitalize()
         if st.session_state.page == page:
@@ -332,85 +327,50 @@ def instructions_page():
         st.session_state.page = 'testing'
         st.rerun()
 
-# Loading Page
+# Loading Page with Spinner, Progress Bars, and Balloons
 def loading_page():
-    st.title("⏳ Saving Your Data...")
-    with st.spinner("Please wait while we save your information and ratings."):
-        # Initialize progress bars
-        progress1 = st.progress(0)
-        progress2 = st.progress(0)
-        progress3 = st.progress(0)
-        
-        # Stage 1: Saving user_info
-        st.markdown("### Saving User Information")
-        for i in range(100):
-            progress1.progress(i + 1)
-            time.sleep(0.005)  # Simulate time-consuming task
-        try:
-            for response in st.session_state.responses:
-                if response['page'] == 'welcome':
-                    insert_query = text("""
-                        INSERT INTO user_info (timestamp, musical_background, age, gender)
-                        VALUES (:timestamp, :musical_background, :age, :gender)
-                    """)
-                    st.session_state.db_engine.execute(insert_query, {
-                        'timestamp': response.get('timestamp', datetime.now().strftime('%Y-%m-%d %H:%M:%S')),
-                        'musical_background': response.get('musical_background', ''),
-                        'age': response.get('age', ''),
-                        'gender': response.get('gender', '')
-                    })
-        except Exception as e:
-            st.error(f"Error saving user_info: {e}")
-        
-        # Stage 2: Saving user_ratings
-        st.markdown("### Saving User Ratings")
-        for i in range(100):
-            progress2.progress(i + 1)
-            time.sleep(0.005)  # Simulate time-consuming task
-        try:
-            for response in st.session_state.responses:
-                if response['page'] == 'testing':
-                    insert_query = text("""
-                        INSERT INTO user_ratings (timestamp, input_file, output_file, continuation_number, model, criterion, rating)
-                        VALUES (:timestamp, :input_file, :output_file, :continuation_number, :model, :criterion, :rating)
-                    """)
-                    st.session_state.db_engine.execute(insert_query, {
-                        'timestamp': response.get('timestamp', datetime.now().strftime('%Y-%m-%d %H:%M:%S')),
-                        'input_file': response.get('input', ''),
-                        'output_file': response.get('output', ''),
-                        'continuation_number': response.get('continuation_number', 0),
-                        'model': response.get('model', ''),
-                        'criterion': response.get('criterion', ''),
-                        'rating': response.get('rating', 0)
-                    })
-        except Exception as e:
-            st.error(f"Error saving user_ratings: {e}")
-        
-        # Stage 3: Saving user_feedback (if any)
-        st.markdown("### Saving User Feedback")
-        for i in range(100):
-            progress3.progress(i + 1)
-            time.sleep(0.005)  # Simulate time-consuming task
-        try:
-            for response in st.session_state.responses:
-                if response['page'] == 'feedback':
-                    insert_query = text("""
-                        INSERT INTO user_feedback (timestamp, feedback)
-                        VALUES (:timestamp, :feedback)
-                    """)
-                    st.session_state.db_engine.execute(insert_query, {
-                        'timestamp': response.get('timestamp', datetime.now().strftime('%Y-%m-%d %H:%M:%S')),
-                        'feedback': response.get('feedback', '')
-                    })
-        except Exception as e:
-            st.error(f"Error saving user_feedback: {e}")
+    if 'ratings_saved' not in st.session_state:
+        st.session_state.ratings_saved = False
     
-    # Display balloons after saving
-    st.balloons()
-    st.success("✅ Your data has been saved successfully. Thank you!")
-    # Navigate to closing page
-    st.session_state.page = 'closing'
-    st.rerun()
+    if not st.session_state.ratings_saved:
+        st.markdown("### Saving your responses. Please wait...")
+        with st.spinner("Saving your data..."):
+            # Initialize progress bars
+            progress_bar1 = st.progress(0)
+            progress_bar2 = st.progress(0)
+            progress_bar3 = st.progress(0)
+            
+            # Simulate saving user_info
+            for i in range(101):
+                progress_bar1.progress(i)
+                time.sleep(0.005)  # Simulate time taken to save user_info
+            
+            # Simulate saving user_ratings
+            for i in range(101):
+                progress_bar2.progress(i)
+                time.sleep(0.005)  # Simulate time taken to save user_ratings
+            
+            # Simulate saving user_feedback (if applicable)
+            for i in range(101):
+                progress_bar3.progress(i)
+                time.sleep(0.005)  # Simulate time taken
+            
+            # Actually save data
+            save_ratings()
+            
+            # Set flag to indicate saving is done
+            st.session_state.ratings_saved = True
+            
+            # Show balloons after saving
+            st.balloons()
+        
+        # After saving, move to closing page
+        st.session_state.page = 'closing'
+        st.rerun()
+    else:
+        # If already saved, move to closing page
+        st.session_state.page = 'closing'
+        st.rerun()
 
 # Testing Page with Enhanced Tabs and Debug Button
 def testing_page():
@@ -528,7 +488,7 @@ def testing_page():
             st.session_state.page = 'loading'
             st.rerun()
     else:
-        # All inputs have been processed, save ratings and move to closing
+        # If all inputs have been processed, move to closing page
         st.session_state.page = 'closing'
         st.rerun()
 
@@ -551,9 +511,9 @@ def closing_page():
                     'page': 'feedback',
                     'feedback': feedback
                 })
-            # Navigate to loading page to save feedback
-            st.session_state.page = 'loading'
-            st.rerun()
+            # Save feedback to the database
+            save_feedback()
+            st.stop()
 
 # Initialize Database Connection
 init_db()
