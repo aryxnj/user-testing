@@ -3,7 +3,6 @@ from sqlalchemy import create_engine, text
 from pathlib import Path
 import random
 from datetime import datetime
-import time  # For simulating progress delays
 
 # Set page configuration
 st.set_page_config(
@@ -414,42 +413,7 @@ def testing_page():
                                 'criterion': criterion_name,
                                 'rating': rating
                             })
-                        # Initiate data saving with spinner and progress bars
-                        with st.spinner("Saving your ratings..."):
-                            # Initialize progress bars
-                            progress_user_info = st.progress(0)
-                            progress_user_ratings = st.progress(0)
-                            progress_finalizing = st.progress(0)
-
-                            # Step 1: Save user_info
-                            try:
-                                # Simulate delay for saving user_info
-                                time.sleep(1)  # Remove or adjust in production
-                                save_ratings_partial('user_info')
-                                progress_user_info.progress(100)
-                            except Exception as e:
-                                st.error(f"Error saving user information: {e}")
-
-                            # Step 2: Save user_ratings
-                            try:
-                                # Simulate delay for saving user_ratings
-                                time.sleep(1)  # Remove or adjust in production
-                                save_ratings_partial('user_ratings')
-                                progress_user_ratings.progress(100)
-                            except Exception as e:
-                                st.error(f"Error saving user ratings: {e}")
-
-                            # Step 3: Finalizing
-                            try:
-                                # Simulate delay for finalizing
-                                time.sleep(1)  # Remove or adjust in production
-                                # Any final steps can be added here
-                                progress_finalizing.progress(100)
-                            except Exception as e:
-                                st.error(f"Error during finalization: {e}")
-
                         st.success("✅ Ratings submitted successfully!")
-                        st.balloons()
                         # Move to next output
                         st.session_state.current_output_index += 1
                         st.rerun()
@@ -457,54 +421,19 @@ def testing_page():
             # Debug Submit Button
             st.markdown("---")  # Separator before Debug button
             if st.button("Debug Submit"):
-                # Append default ratings
-                for criterion in evaluation_criteria:
-                    st.session_state.responses.append({
-                        'timestamp': datetime.now().isoformat(),
-                        'page': 'testing',
-                        'input': current_input_file.name,
-                        'output': output_file.name,
-                        'continuation_number': continuation_number,
-                        'model': model_name,
-                        'criterion': criterion['name'],
-                        'rating': 3
-                    })
-                # Initiate data saving with spinner and progress bars
-                with st.spinner("Saving your ratings..."):
-                    # Initialize progress bars
-                    progress_user_info = st.progress(0)
-                    progress_user_ratings = st.progress(0)
-                    progress_finalizing = st.progress(0)
-
-                    # Step 1: Save user_info
-                    try:
-                        # Simulate delay for saving user_info
-                        time.sleep(1)  # Remove or adjust in production
-                        save_ratings_partial('user_info')
-                        progress_user_info.progress(100)
-                    except Exception as e:
-                        st.error(f"Error saving user information: {e}")
-
-                    # Step 2: Save user_ratings
-                    try:
-                        # Simulate delay for saving user_ratings
-                        time.sleep(1)  # Remove or adjust in production
-                        save_ratings_partial('user_ratings')
-                        progress_user_ratings.progress(100)
-                    except Exception as e:
-                        st.error(f"Error saving user ratings: {e}")
-
-                    # Step 3: Finalizing
-                    try:
-                        # Simulate delay for finalizing
-                        time.sleep(1)  # Remove or adjust in production
-                        # Any final steps can be added here
-                        progress_finalizing.progress(100)
-                    except Exception as e:
-                        st.error(f"Error during finalization: {e}")
-
-                st.success("✅ Ratings submitted successfully!")
-                st.balloons()
+                with st.spinner("Submitting default ratings (3)..."):
+                    for criterion in evaluation_criteria:
+                        st.session_state.responses.append({
+                            'timestamp': datetime.now().isoformat(),
+                            'page': 'testing',
+                            'input': current_input_file.name,
+                            'output': output_file.name,
+                            'continuation_number': continuation_number,
+                            'model': model_name,
+                            'criterion': criterion['name'],
+                            'rating': 3
+                        })
+                st.success("✅ Ratings submitted with default values (3).")
                 # Move to next output
                 st.session_state.current_output_index += 1
                 st.rerun()
@@ -512,43 +441,11 @@ def testing_page():
             # All outputs for the current input have been rated
             # Check if it's the last input
             if st.session_state.current_input_index + 1 >= len(input_files):
-                # All inputs have been processed, save ratings and move to closing
-                with st.spinner("Saving your ratings..."):
-                    # Initialize progress bars
-                    progress_user_info = st.progress(0)
-                    progress_user_ratings = st.progress(0)
-                    progress_finalizing = st.progress(0)
-
-                    # Step 1: Save user_info
-                    try:
-                        # Simulate delay for saving user_info
-                        time.sleep(1)  # Remove or adjust in production
-                        save_ratings_partial('user_info')
-                        progress_user_info.progress(100)
-                    except Exception as e:
-                        st.error(f"Error saving user information: {e}")
-
-                    # Step 2: Save user_ratings
-                    try:
-                        # Simulate delay for saving user_ratings
-                        time.sleep(1)  # Remove or adjust in production
-                        save_ratings_partial('user_ratings')
-                        progress_user_ratings.progress(100)
-                    except Exception as e:
-                        st.error(f"Error saving user ratings: {e}")
-
-                    # Step 3: Finalizing
-                    try:
-                        # Simulate delay for finalizing
-                        time.sleep(1)  # Remove or adjust in production
-                        # Any final steps can be added here
-                        progress_finalizing.progress(100)
-                    except Exception as e:
-                        st.error(f"Error during finalization: {e}")
-
-                st.success("✅ All ratings have been submitted successfully!")
+                # All inputs have been processed, save ratings and move to closing with spinner
+                with st.spinner("Saving your information and ratings..."):
+                    save_ratings()
+                # Show balloons on successful saving
                 st.balloons()
-                # Move to closing page
                 st.session_state.page = 'closing'
                 st.rerun()
             else:
@@ -556,125 +453,31 @@ def testing_page():
                 st.session_state.current_input_index += 1
                 st.session_state.current_output_index = 0
                 st.rerun()
-    else:
-        st.session_state.page = 'closing'
-        st.rerun()
+    # Closing Page
+    def closing_page():
+        st.image("closing_banner.png", use_container_width=True)  # Ensure 'closing_banner.png' exists
+        st.title("✅ Thank You for Your Participation!")
+        st.markdown("""
+            We appreciate you taking the time to help us improve the AI Music Assistant. 
+            Your feedback is invaluable and will contribute to the development of better musical tools.
+        """)
 
-# Partial Save Function for Ratings
-def save_ratings_partial(part):
-    """
-    Saves a specific part of the ratings based on the 'part' parameter.
-    'part' can be 'user_info' or 'user_ratings'.
-    """
-    if 'db_engine' not in st.session_state:
-        st.error("Database not initialized.")
-        return
-    engine = st.session_state.db_engine
-    try:
-        with engine.begin() as connection:
-            if part == 'user_info':
-                for response in st.session_state.responses:
-                    if response['page'] == 'welcome':
-                        insert_query = text("""
-                            INSERT INTO user_info (timestamp, musical_background, age, gender)
-                            VALUES (:timestamp, :musical_background, :age, :gender)
-                        """)
-                        connection.execute(insert_query, {
-                            'timestamp': response.get('timestamp', datetime.now().strftime('%Y-%m-%d %H:%M:%S')),
-                            'musical_background': response.get('musical_background', ''),
-                            'age': response.get('age', ''),
-                            'gender': response.get('gender', '')
-                        })
-            elif part == 'user_ratings':
-                for response in st.session_state.responses:
-                    if response['page'] == 'testing':
-                        insert_query = text("""
-                            INSERT INTO user_ratings (timestamp, input_file, output_file, continuation_number, model, criterion, rating)
-                            VALUES (:timestamp, :input_file, :output_file, :continuation_number, :model, :criterion, :rating)
-                        """)
-                        connection.execute(insert_query, {
-                            'timestamp': response.get('timestamp', datetime.now().strftime('%Y-%m-%d %H:%M:%S')),
-                            'input_file': response.get('input', ''),
-                            'output_file': response.get('output', ''),
-                            'continuation_number': response.get('continuation_number', 0),
-                            'model': response.get('model', ''),
-                            'criterion': response.get('criterion', ''),
-                            'rating': response.get('rating', 0)
-                        })
-    except Exception as e:
-        st.error(f"Error saving {part}: {e}")
-
-# Closing Page
-def closing_page():
-    st.image("closing_banner.png", use_container_width=True)  # Ensure 'closing_banner.png' exists
-    st.title("✅ Thank You for Your Participation!")
-    st.markdown("""
-        We appreciate you taking the time to help us improve the AI Music Assistant. 
-        Your feedback is invaluable and will contribute to the development of better musical tools.
-    """)
-
-    with st.form("additional_feedback"):
-        feedback = st.text_area("📝 Do you have any additional comments or suggestions?", "")
-        submitted = st.form_submit_button("📤 Submit and Exit")
-        if submitted:
-            if feedback:
-                st.session_state.responses.append({
-                    'timestamp': datetime.now().isoformat(),
-                    'page': 'feedback',
-                    'feedback': feedback
-                })
-            # Save feedback to the database with spinner and progress bars
-            with st.spinner("Submitting your feedback..."):
-                # Initialize progress bars
-                progress_feedback = st.progress(0)
-                progress_finalizing = st.progress(0)
-
-                # Step 1: Save user_feedback
-                try:
-                    # Simulate delay for saving feedback
-                    time.sleep(1)  # Remove or adjust in production
-                    save_feedback_partial('user_feedback')
-                    progress_feedback.progress(100)
-                except Exception as e:
-                    st.error(f"Error saving feedback: {e}")
-
-                # Step 2: Finalizing
-                try:
-                    # Simulate delay for finalizing
-                    time.sleep(1)  # Remove or adjust in production
-                    progress_finalizing.progress(100)
-                except Exception as e:
-                    st.error(f"Error during finalization: {e}")
-
-            st.success("✅ Your feedback has been submitted successfully. Thank you!")
-            st.balloons()
-            st.stop()
-
-# Partial Save Function for Feedback
-def save_feedback_partial(part):
-    """
-    Saves a specific part of the feedback based on the 'part' parameter.
-    'part' can be 'user_feedback'.
-    """
-    if 'db_engine' not in st.session_state:
-        st.error("Database not initialized.")
-        return
-    engine = st.session_state.db_engine
-    try:
-        with engine.begin() as connection:
-            if part == 'user_feedback':
-                for response in st.session_state.responses:
-                    if response['page'] == 'feedback':
-                        insert_query = text("""
-                            INSERT INTO user_feedback (timestamp, feedback)
-                            VALUES (:timestamp, :feedback)
-                        """)
-                        connection.execute(insert_query, {
-                            'timestamp': response.get('timestamp', datetime.now().strftime('%Y-%m-%d %H:%M:%S')),
-                            'feedback': response.get('feedback', '')
-                        })
-    except Exception as e:
-        st.error(f"Error saving {part}: {e}")
+        with st.form("additional_feedback"):
+            feedback = st.text_area("📝 Do you have any additional comments or suggestions?", "")
+            submitted = st.form_submit_button("📤 Submit and Exit")
+            if submitted:
+                if feedback:
+                    st.session_state.responses.append({
+                        'timestamp': datetime.now().isoformat(),
+                        'page': 'feedback',
+                        'feedback': feedback
+                    })
+                # Save feedback to the database with spinner
+                with st.spinner("Submitting your feedback..."):
+                    save_feedback()
+                # Show balloons upon successful feedback submission
+                st.balloons()
+                st.stop()
 
 # Initialize Database Connection
 init_db()
