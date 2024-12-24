@@ -80,65 +80,67 @@ def init_db():
         except Exception as e:
             st.error(f"Error connecting to PostgreSQL: {e}")
 
-# Function to save user information and ratings to PostgreSQL
+# Function to save user information and ratings to PostgreSQL with spinner
 def save_ratings():
     if 'db_engine' not in st.session_state:
         st.error("Database not initialized.")
         return
     engine = st.session_state.db_engine
     try:
-        with engine.begin() as connection:  # Use engine.begin to auto-commit
-            # Save user_info
-            for response in st.session_state.responses:
-                if response['page'] == 'welcome':
-                    insert_query = text("""
-                        INSERT INTO user_info (timestamp, musical_background, age, gender)
-                        VALUES (:timestamp, :musical_background, :age, :gender)
-                    """)
-                    connection.execute(insert_query, {
-                        'timestamp': response.get('timestamp', datetime.now().strftime('%Y-%m-%d %H:%M:%S')),
-                        'musical_background': response.get('musical_background', ''),
-                        'age': response.get('age', ''),
-                        'gender': response.get('gender', '')
-                    })
-            # Save user_ratings
-            for response in st.session_state.responses:
-                if response['page'] == 'testing':
-                    insert_query = text("""
-                        INSERT INTO user_ratings (timestamp, input_file, output_file, continuation_number, model, criterion, rating)
-                        VALUES (:timestamp, :input_file, :output_file, :continuation_number, :model, :criterion, :rating)
-                    """)
-                    connection.execute(insert_query, {
-                        'timestamp': response.get('timestamp', datetime.now().strftime('%Y-%m-%d %H:%M:%S')),
-                        'input_file': response.get('input', ''),
-                        'output_file': response.get('output', ''),
-                        'continuation_number': response.get('continuation_number', 0),
-                        'model': response.get('model', ''),
-                        'criterion': response.get('criterion', ''),
-                        'rating': response.get('rating', 0)
-                    })
+        with st.spinner("Saving your ratings..."):
+            with engine.begin() as connection:  # Use engine.begin to auto-commit
+                # Save user_info
+                for response in st.session_state.responses:
+                    if response['page'] == 'welcome':
+                        insert_query = text("""
+                            INSERT INTO user_info (timestamp, musical_background, age, gender)
+                            VALUES (:timestamp, :musical_background, :age, :gender)
+                        """)
+                        connection.execute(insert_query, {
+                            'timestamp': response.get('timestamp', datetime.now().strftime('%Y-%m-%d %H:%M:%S')),
+                            'musical_background': response.get('musical_background', ''),
+                            'age': response.get('age', ''),
+                            'gender': response.get('gender', '')
+                        })
+                # Save user_ratings
+                for response in st.session_state.responses:
+                    if response['page'] == 'testing':
+                        insert_query = text("""
+                            INSERT INTO user_ratings (timestamp, input_file, output_file, continuation_number, model, criterion, rating)
+                            VALUES (:timestamp, :input_file, :output_file, :continuation_number, :model, :criterion, :rating)
+                        """)
+                        connection.execute(insert_query, {
+                            'timestamp': response.get('timestamp', datetime.now().strftime('%Y-%m-%d %H:%M:%S')),
+                            'input_file': response.get('input', ''),
+                            'output_file': response.get('output', ''),
+                            'continuation_number': response.get('continuation_number', 0),
+                            'model': response.get('model', ''),
+                            'criterion': response.get('criterion', ''),
+                            'rating': response.get('rating', 0)
+                        })
         st.success("✅ Your information and ratings have been successfully saved. Thank you!")
     except Exception as e:
         st.error(f"Error saving ratings: {e}")
 
-# Function to save feedback to PostgreSQL
+# Function to save feedback to PostgreSQL with spinner
 def save_feedback():
     if 'db_engine' not in st.session_state:
         st.error("Database not initialized.")
         return
     engine = st.session_state.db_engine
     try:
-        with engine.begin() as connection:
-            for response in st.session_state.responses:
-                if response['page'] == 'feedback':
-                    insert_query = text("""
-                        INSERT INTO user_feedback (timestamp, feedback)
-                        VALUES (:timestamp, :feedback)
-                    """)
-                    connection.execute(insert_query, {
-                        'timestamp': response.get('timestamp', datetime.now().strftime('%Y-%m-%d %H:%M:%S')),
-                        'feedback': response.get('feedback', '')
-                    })
+        with st.spinner("Submitting your feedback..."):
+            with engine.begin() as connection:
+                for response in st.session_state.responses:
+                    if response['page'] == 'feedback':
+                        insert_query = text("""
+                            INSERT INTO user_feedback (timestamp, feedback)
+                            VALUES (:timestamp, :feedback)
+                        """)
+                        connection.execute(insert_query, {
+                            'timestamp': response.get('timestamp', datetime.now().strftime('%Y-%m-%d %H:%M:%S')),
+                            'feedback': response.get('feedback', '')
+                        })
         st.success("✅ Your feedback has been submitted successfully.")
     except Exception as e:
         st.error(f"Error saving feedback: {e}")
@@ -453,7 +455,7 @@ def testing_page():
         st.session_state.page = 'closing'
         st.rerun()
 
-# Closing Page
+# Closing Page with Balloons
 def closing_page():
     st.image("closing_banner.png", use_container_width=True)  # Ensure 'closing_banner.png' exists
     st.title("✅ Thank You for Your Participation!")
@@ -474,6 +476,8 @@ def closing_page():
                 })
             # Save feedback to the database
             save_feedback()
+            # Trigger balloons effect after saving feedback
+            st.balloons()
             st.stop()
 
 # Initialize Database Connection
