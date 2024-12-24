@@ -62,12 +62,9 @@ if 'total_steps' not in st.session_state:
     num_outputs = 4  # Assuming 4 models per input
     st.session_state.total_steps = num_inputs * num_outputs  # 16 ratings
 
-if 'ratings' not in st.session_state:
-    st.session_state.ratings = {}
-
 # Function to reset the session (for testing purposes)
 def reset_session():
-    for key in ['page', 'responses', 'current_input_index', 'current_output_index', 'input_order', 'output_orders', 'total_steps', 'submitting', 'ratings']:
+    for key in ['page', 'responses', 'current_input_index', 'current_output_index', 'input_order', 'output_orders', 'total_steps', 'submitting']:
         if key in st.session_state:
             del st.session_state[key]
     st.rerun()
@@ -209,7 +206,7 @@ def render_sidebar():
     st.sidebar.title("📋 Contents")
     # Add the first separator underneath the title
     st.sidebar.markdown("---")  # First Separator
-
+    
     pages = ["welcome", "instructions", "testing", "closing"]
     for page in pages:
         display_name = page.capitalize()
@@ -218,10 +215,10 @@ def render_sidebar():
             st.sidebar.markdown(f"### **{display_name}**")
         else:
             st.sidebar.markdown(f"{display_name}")
-
+    
     # Add the second separator just underneath the contents
     st.sidebar.markdown("---")  # Second Separator
-
+    
     # Only show Testing Progress or Completed when in Testing-related pages
     if st.session_state.page in ['testing', 'loading', 'closing']:
         st.sidebar.subheader("📝 Testing Progress")
@@ -339,7 +336,7 @@ def loading_page():
     st.session_state.page = 'closing'
     st.rerun()
 
-# Testing Page with Enhanced Validation and Highlighting
+# Testing Page with Enhanced Tabs
 def testing_page():
     input_files = st.session_state.input_order
     current_input_index = st.session_state.current_input_index
@@ -374,65 +371,48 @@ def testing_page():
             st.subheader(f"🎹 Continuation {continuation_number} - Model: {model_name}")
             st.video(str(output_file))
 
-            # Initialize session state for ratings if not already done
-            form_key = f"rating_form_{current_input_index}_{output_index}"
-            if form_key not in st.session_state.ratings:
-                st.session_state.ratings[form_key] = {criterion['name']: None for criterion in evaluation_criteria}
-
-            with st.form(form_key):
+            with st.form(f"rating_form_{current_input_index}_{output_index}"):
                 st.markdown("**Please rate the following criteria:**")
                 
                 # Create tabs for each evaluation criterion
-                tabs = st.tabs([criterion['name'] for criterion in evaluation_criteria])
-                ratings = st.session_state.ratings[form_key]
+                tab_names = [criterion['name'] for criterion in evaluation_criteria]
+                tabs = st.tabs(tab_names)
 
-                for idx, (tab, criterion) in enumerate(zip(tabs, evaluation_criteria)):
+                ratings = {}  # Dictionary to hold ratings for each criterion
+                unanswered_criteria = []  # List to track unanswered criteria
+
+                for tab, criterion in zip(tabs, evaluation_criteria):
                     with tab:
-                        # Check if this criterion has been rated
-                        if ratings[criterion['name']] is None:
-                            tab_label = f"{criterion['name']} ❗"  # Indicate not answered
-                        else:
-                            tab_label = f"{criterion['name']} ✅"  # Indicate answered
-                        # Re-render the tab label with the indicator
-                        st.markdown(f"### {tab_label}")
-
                         st.markdown(f"*{criterion['description']}*")
                         st.markdown("**Scoring:**")
                         st.markdown(f"- **1:** {criterion['scoring']['1']}")
                         st.markdown(f"- **3:** {criterion['scoring']['3']}")
                         st.markdown(f"- **5:** {criterion['scoring']['5']}")
-
-                        # Slider for rating
-                        # Since sliders require a default value, we'll use 3 and treat it as 'not set'
-                        # Users must adjust it to indicate their rating
-                        rating = st.slider(
+                        
+                        # Select box for rating with 'Select' as default
+                        rating = st.selectbox(
                             f"Rate {criterion['name']}:",
-                            min_value=1,
-                            max_value=5,
-                            value=3,  # Default value
-                            step=1,
-                            key=f"{form_key}_{criterion['name']}"
+                            options=['Select', 1, 2, 3, 4, 5],
+                            index=0,
+                            key=f"{current_input_index}_{output_index}_{criterion['name']}"
                         )
-
-                        # Update the rating in session state
-                        st.session_state.ratings[form_key][criterion['name']] = rating
+                        
+                        # Store the rating in the dictionary
+                        ratings[criterion['name']] = rating
 
                 submitted = st.form_submit_button("Submit Rating")
                 if submitted:
-                    # Check if all criteria have been rated (since sliders always have a value, we'll assume they have been rated)
-                    # However, to simulate "no selection," consider 3 as neutral and require user to change it
-                    incomplete_criteria = [
-                        criterion['name'] 
-                        for criterion in evaluation_criteria 
-                        if st.session_state.ratings[form_key][criterion['name']] == 3
-                    ]
-
-                    if incomplete_criteria:
-                        st.error("Please adjust all sliders from the default value (3) before submitting.")
-                        st.markdown("**Incomplete Criteria:** " + ", ".join(incomplete_criteria))
+                    # Check for unanswered criteria
+                    for criterion_name, rating in ratings.items():
+                        if rating == 'Select':
+                            unanswered_criteria.append(criterion_name)
+                    
+                    if unanswered_criteria:
+                        st.error("Please rate all criteria before submitting.")
+                        st.warning(f"Unanswered Criteria: {', '.join(unanswered_criteria)}")
                     else:
                         # Append all ratings at once to avoid multiple entries
-                        for criterion_name, rating in st.session_state.ratings[form_key].items():
+                        for criterion_name, rating in ratings.items():
                             st.session_state.responses.append({
                                 'timestamp': datetime.now().isoformat(),
                                 'page': 'testing',
@@ -477,7 +457,6 @@ def closing_page():
                 })
             # Save feedback to the database
             save_feedback()
-            st.success("Your feedback has been submitted successfully! Have a great day!")
             st.stop()
 
 # Initialize Database Connection
