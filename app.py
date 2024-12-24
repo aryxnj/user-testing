@@ -464,6 +464,9 @@ def closing_page():
         Your feedback is invaluable and will contribute to the development of better musical tools.
     """)
 
+    # Trigger balloons effect after saving feedback
+    st.balloons()
+    
     with st.form("additional_feedback"):
         feedback = st.text_area("📝 Do you have any additional comments or suggestions?", "")
         submitted = st.form_submit_button("📤 Submit and Exit")
@@ -476,8 +479,6 @@ def closing_page():
                 })
             # Save feedback to the database
             save_feedback()
-            # Trigger balloons effect after saving feedback
-            st.balloons()
             st.stop()
 
 # Initialize Database Connection
