@@ -335,7 +335,7 @@ def loading_page():
     st.session_state.page = 'closing'
     st.rerun()
 
-# Testing Page with Modified Buttons
+# Testing Page with Tabs and Next/Submit Buttons
 def testing_page():
     input_files = st.session_state.input_order
     current_input_index = st.session_state.current_input_index
@@ -368,47 +368,34 @@ def testing_page():
             st.subheader(f"🎹 Continuation {continuation_number} - Model: {model_name}")
             st.video(str(output_file))
 
-            # Initialize current criterion index and ratings if not present
-            if 'current_criterion_index' not in st.session_state:
-                st.session_state.current_criterion_index = 0
-            if 'ratings' not in st.session_state:
-                st.session_state.ratings = {}
+            # Create tabs for each evaluation criterion
+            tab_labels = [criterion['name'] for criterion in evaluation_criteria]
+            tabs = st.tabs(tab_labels)
 
-            current_index = st.session_state.current_criterion_index
+            for idx, (tab, criterion) in enumerate(zip(tabs, evaluation_criteria)):
+                with tab:
+                    st.markdown(f"**{criterion['name']}**")
+                    st.markdown(f"*{criterion['description']}*")
+                    st.markdown("**Scoring:**")
+                    st.markdown(f"- **1:** {criterion['scoring']['1']}")
+                    st.markdown(f"- **3:** {criterion['scoring']['3']}")
+                    st.markdown(f"- **5:** {criterion['scoring']['5']}")
 
-            if current_index < len(evaluation_criteria):
-                criterion = evaluation_criteria[current_index]
-                st.markdown(f"### {criterion['name']}")
-                st.markdown(f"*{criterion['description']}*")
-                st.markdown("**Scoring:**")
-                st.markdown(f"- **1:** {criterion['scoring']['1']}")
-                st.markdown(f"- **3:** {criterion['scoring']['3']}")
-                st.markdown(f"- **5:** {criterion['scoring']['5']}")
+                    # Slider for rating
+                    rating = st.slider(
+                        f"Rate {criterion['name']}:",
+                        min_value=1,
+                        max_value=5,
+                        value=3,
+                        step=1,
+                        key=f"{current_input_index}_{output_index}_{criterion['name']}"
+                    )
 
-                # Slider for rating
-                rating = st.slider(
-                    f"Rate {criterion['name']}:",
-                    min_value=1,
-                    max_value=5,
-                    value=3,
-                    step=1,
-                    key=f"{current_input_index}_{output_index}_{criterion['name']}"
-                )
-
-                # Button logic: Next or Submit
-                if current_index < len(evaluation_criteria) - 1:
-                    if st.button("➡️ Next"):
-                        # Save the current rating
-                        st.session_state.ratings[criterion['name']] = rating
-                        # Move to next criterion
-                        st.session_state.current_criterion_index += 1
-                        st.rerun()
-                else:
-                    if st.button("✅ Submit"):
-                        # Save the final rating
-                        st.session_state.ratings[criterion['name']] = rating
-                        # Save all ratings
-                        for crit_name, crit_rating in st.session_state.ratings.items():
+                    # Button logic
+                    if idx < len(evaluation_criteria) - 1:
+                        # For all but the last criterion, show "Next" button
+                        if st.button("➡️ Next", key=f"next_{current_input_index}_{output_index}_{criterion['name']}"):
+                            # Save the current rating
                             st.session_state.responses.append({
                                 'timestamp': datetime.now().isoformat(),
                                 'page': 'testing',
@@ -416,17 +403,28 @@ def testing_page():
                                 'output': output_file.name,
                                 'continuation_number': continuation_number,
                                 'model': model_name,
-                                'criterion': crit_name,
-                                'rating': crit_rating
+                                'criterion': criterion['name'],
+                                'rating': rating
                             })
-                        st.success("✅ Rating submitted successfully!")
-                        # Reset ratings and move to next output
-                        st.session_state.ratings = {}
-                        st.session_state.current_criterion_index = 0
-                        st.session_state.current_output_index += 1
-                        st.rerun()
-            else:
-                st.error("All criteria have been rated.")
+                            st.success(f"✅ {criterion['name']} rating submitted. Please proceed to the next tab.")
+                    else:
+                        # For the last criterion, show "Submit" button
+                        if st.button("✅ Submit", key=f"submit_{current_input_index}_{output_index}_{criterion['name']}"):
+                            # Save the current rating
+                            st.session_state.responses.append({
+                                'timestamp': datetime.now().isoformat(),
+                                'page': 'testing',
+                                'input': current_input_file.name,
+                                'output': output_file.name,
+                                'continuation_number': continuation_number,
+                                'model': model_name,
+                                'criterion': criterion['name'],
+                                'rating': rating
+                            })
+                            st.success("✅ All ratings submitted successfully!")
+                            # Move to next output
+                            st.session_state.current_output_index += 1
+                            st.rerun()
         else:
             # Move to next input
             st.session_state.current_input_index += 1
