@@ -336,7 +336,7 @@ def loading_page():
     st.session_state.page = 'closing'
     st.rerun()
 
-# Testing Page with Enhanced Tabs
+# Testing Page with Enhanced Tabs and Debug Button
 def testing_page():
     input_files = st.session_state.input_order
     current_input_index = st.session_state.current_input_index
@@ -427,6 +427,25 @@ def testing_page():
                         # Move to next output
                         st.session_state.current_output_index += 1
                         st.rerun()
+            
+            # Debug Submit Button
+            st.markdown("---")  # Separator before Debug button
+            if st.button("Debug Submit"):
+                for criterion in evaluation_criteria:
+                    st.session_state.responses.append({
+                        'timestamp': datetime.now().isoformat(),
+                        'page': 'testing',
+                        'input': current_input_file.name,
+                        'output': output_file.name,
+                        'continuation_number': continuation_number,
+                        'model': model_name,
+                        'criterion': criterion['name'],
+                        'rating': 3
+                    })
+                st.success("✅ Ratings submitted with default values (3).")
+                # Move to next output
+                st.session_state.current_output_index += 1
+                st.rerun()
         else:
             # Move to next input
             st.session_state.current_input_index += 1
