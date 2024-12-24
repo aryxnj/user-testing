@@ -62,9 +62,12 @@ if 'total_steps' not in st.session_state:
     num_outputs = 4  # Assuming 4 models per input
     st.session_state.total_steps = num_inputs * num_outputs  # 16 ratings
 
+if 'ratings' not in st.session_state:
+    st.session_state.ratings = {}
+
 # Function to reset the session (for testing purposes)
 def reset_session():
-    for key in ['page', 'responses', 'current_input_index', 'current_output_index', 'input_order', 'output_orders', 'total_steps', 'submitting']:
+    for key in ['page', 'responses', 'current_input_index', 'current_output_index', 'input_order', 'output_orders', 'total_steps', 'submitting', 'ratings']:
         if key in st.session_state:
             del st.session_state[key]
     st.rerun()
@@ -373,15 +376,15 @@ def testing_page():
 
             # Initialize session state for ratings if not already done
             form_key = f"rating_form_{current_input_index}_{output_index}"
-            if form_key not in st.session_state:
-                st.session_state[form_key] = {criterion['name']: None for criterion in evaluation_criteria}
+            if form_key not in st.session_state.ratings:
+                st.session_state.ratings[form_key] = {criterion['name']: None for criterion in evaluation_criteria}
 
             with st.form(form_key):
                 st.markdown("**Please rate the following criteria:**")
                 
                 # Create tabs for each evaluation criterion
                 tabs = st.tabs([criterion['name'] for criterion in evaluation_criteria])
-                ratings = st.session_state[form_key]
+                ratings = st.session_state.ratings[form_key]
 
                 for idx, (tab, criterion) in enumerate(zip(tabs, evaluation_criteria)):
                     with tab:
@@ -398,34 +401,38 @@ def testing_page():
                         st.markdown(f"- **1:** {criterion['scoring']['1']}")
                         st.markdown(f"- **3:** {criterion['scoring']['3']}")
                         st.markdown(f"- **5:** {criterion['scoring']['5']}")
-                        
+
                         # Slider for rating
+                        # Since sliders require a default value, we'll use 3 and treat it as 'not set'
+                        # Users must adjust it to indicate their rating
                         rating = st.slider(
                             f"Rate {criterion['name']}:",
                             min_value=1,
                             max_value=5,
-                            value=3,  # Default to None is not possible; use None in session state
+                            value=3,  # Default value
                             step=1,
-                            key=f"{current_input_index}_{output_index}_{criterion['name']}"
+                            key=f"{form_key}_{criterion['name']}"
                         )
-                        
+
                         # Update the rating in session state
-                        st.session_state[form_key][criterion['name']] = rating
+                        st.session_state.ratings[form_key][criterion['name']] = rating
 
                 submitted = st.form_submit_button("Submit Rating")
                 if submitted:
-                    # Check if all criteria have been rated
-                    incomplete_criteria = [criterion['name'] for criterion in evaluation_criteria if st.session_state[form_key][criterion['name']] is None]
-                    
+                    # Check if all criteria have been rated (since sliders always have a value, we'll assume they have been rated)
+                    # However, to simulate "no selection," consider 3 as neutral and require user to change it
+                    incomplete_criteria = [
+                        criterion['name'] 
+                        for criterion in evaluation_criteria 
+                        if st.session_state.ratings[form_key][criterion['name']] == 3
+                    ]
+
                     if incomplete_criteria:
-                        st.error("Please rate all criteria before submitting.")
-                        # Optionally, highlight the incomplete tabs
-                        # Note: Streamlit does not support dynamic tab highlighting directly
-                        # Alternative: Display a message indicating which criteria are incomplete
+                        st.error("Please adjust all sliders from the default value (3) before submitting.")
                         st.markdown("**Incomplete Criteria:** " + ", ".join(incomplete_criteria))
                     else:
                         # Append all ratings at once to avoid multiple entries
-                        for criterion_name, rating in st.session_state[form_key].items():
+                        for criterion_name, rating in st.session_state.ratings[form_key].items():
                             st.session_state.responses.append({
                                 'timestamp': datetime.now().isoformat(),
                                 'page': 'testing',
