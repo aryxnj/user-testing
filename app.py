@@ -421,18 +421,17 @@ def testing_page():
             # Debug Submit Button
             st.markdown("---")  # Separator before Debug button
             if st.button("Debug Submit"):
-                with st.spinner("Submitting default ratings (3)..."):
-                    for criterion in evaluation_criteria:
-                        st.session_state.responses.append({
-                            'timestamp': datetime.now().isoformat(),
-                            'page': 'testing',
-                            'input': current_input_file.name,
-                            'output': output_file.name,
-                            'continuation_number': continuation_number,
-                            'model': model_name,
-                            'criterion': criterion['name'],
-                            'rating': 3
-                        })
+                for criterion in evaluation_criteria:
+                    st.session_state.responses.append({
+                        'timestamp': datetime.now().isoformat(),
+                        'page': 'testing',
+                        'input': current_input_file.name,
+                        'output': output_file.name,
+                        'continuation_number': continuation_number,
+                        'model': model_name,
+                        'criterion': criterion['name'],
+                        'rating': 3
+                    })
                 st.success("✅ Ratings submitted with default values (3).")
                 # Move to next output
                 st.session_state.current_output_index += 1
@@ -441,11 +440,8 @@ def testing_page():
             # All outputs for the current input have been rated
             # Check if it's the last input
             if st.session_state.current_input_index + 1 >= len(input_files):
-                # All inputs have been processed, save ratings and move to closing with spinner
-                with st.spinner("Saving your information and ratings..."):
-                    save_ratings()
-                # Show balloons on successful saving
-                st.balloons()
+                # All inputs have been processed, save ratings and move to closing
+                save_ratings()
                 st.session_state.page = 'closing'
                 st.rerun()
             else:
@@ -453,31 +449,32 @@ def testing_page():
                 st.session_state.current_input_index += 1
                 st.session_state.current_output_index = 0
                 st.rerun()
-    # Closing Page
-    def closing_page():
-        st.image("closing_banner.png", use_container_width=True)  # Ensure 'closing_banner.png' exists
-        st.title("✅ Thank You for Your Participation!")
-        st.markdown("""
-            We appreciate you taking the time to help us improve the AI Music Assistant. 
-            Your feedback is invaluable and will contribute to the development of better musical tools.
-        """)
+    else:
+        st.session_state.page = 'closing'
+        st.rerun()
 
-        with st.form("additional_feedback"):
-            feedback = st.text_area("📝 Do you have any additional comments or suggestions?", "")
-            submitted = st.form_submit_button("📤 Submit and Exit")
-            if submitted:
-                if feedback:
-                    st.session_state.responses.append({
-                        'timestamp': datetime.now().isoformat(),
-                        'page': 'feedback',
-                        'feedback': feedback
-                    })
-                # Save feedback to the database with spinner
-                with st.spinner("Submitting your feedback..."):
-                    save_feedback()
-                # Show balloons upon successful feedback submission
-                st.balloons()
-                st.stop()
+# Closing Page
+def closing_page():
+    st.image("closing_banner.png", use_container_width=True)  # Ensure 'closing_banner.png' exists
+    st.title("✅ Thank You for Your Participation!")
+    st.markdown("""
+        We appreciate you taking the time to help us improve the AI Music Assistant. 
+        Your feedback is invaluable and will contribute to the development of better musical tools.
+    """)
+
+    with st.form("additional_feedback"):
+        feedback = st.text_area("📝 Do you have any additional comments or suggestions?", "")
+        submitted = st.form_submit_button("📤 Submit and Exit")
+        if submitted:
+            if feedback:
+                st.session_state.responses.append({
+                    'timestamp': datetime.now().isoformat(),
+                    'page': 'feedback',
+                    'feedback': feedback
+                })
+            # Save feedback to the database
+            save_feedback()
+            st.stop()
 
 # Initialize Database Connection
 init_db()
