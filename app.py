@@ -67,7 +67,7 @@ def reset_session():
     for key in ['page', 'responses', 'current_input_index', 'current_output_index', 'input_order', 'output_orders', 'total_steps', 'submitting', 'current_criterion_index', 'ratings']:
         if key in st.session_state:
             del st.session_state[key]
-    st.experimental_rerun()
+    st.rerun()
 
 # Function to initialize database connection
 def init_db():
@@ -290,7 +290,7 @@ def welcome_page():
                     'gender': gender
                 })
                 st.session_state.page = 'instructions'
-                st.experimental_rerun()
+                st.rerun()
 
 # Instructions Page
 def instructions_page():
@@ -324,7 +324,7 @@ def instructions_page():
     """)
     if st.button("✅ Begin Testing"):
         st.session_state.page = 'testing'
-        st.experimental_rerun()
+        st.rerun()
 
 # Loading Page
 def loading_page():
@@ -333,9 +333,9 @@ def loading_page():
         save_ratings()
     # After submission, move to closing page
     st.session_state.page = 'closing'
-    st.experimental_rerun()
+    st.rerun()
 
-# Testing Page with Modified Tabs
+# Testing Page with Modified Buttons
 def testing_page():
     input_files = st.session_state.input_order
     current_input_index = st.session_state.current_input_index
@@ -368,80 +368,73 @@ def testing_page():
             st.subheader(f"🎹 Continuation {continuation_number} - Model: {model_name}")
             st.video(str(output_file))
 
-            with st.form(f"rating_form_{current_input_index}_{output_index}"):
-                st.markdown("**Please rate the following criteria:**")
-                
-                # Create tabs for each evaluation criterion
-                tabs = st.tabs([criterion['name'] for criterion in evaluation_criteria])
+            # Initialize current criterion index and ratings if not present
+            if 'current_criterion_index' not in st.session_state:
+                st.session_state.current_criterion_index = 0
+            if 'ratings' not in st.session_state:
+                st.session_state.ratings = {}
 
-                ratings = {}  # Dictionary to hold ratings for each criterion
+            current_index = st.session_state.current_criterion_index
 
-                for i, (tab, criterion) in enumerate(zip(tabs, evaluation_criteria)):
-                    with tab:
-                        st.markdown(f"*{criterion['description']}*")
-                        st.markdown("**Scoring:**")
-                        st.markdown(f"- **1:** {criterion['scoring']['1']}")
-                        st.markdown(f"- **3:** {criterion['scoring']['3']}")
-                        st.markdown(f"- **5:** {criterion['scoring']['5']}")
-                        
-                        # Slider for rating
-                        rating = st.slider(
-                            f"Rate {criterion['name']}:",
-                            min_value=1,
-                            max_value=5,
-                            value=3,
-                            step=1,
-                            key=f"{current_input_index}_{output_index}_{criterion['name']}"
-                        )
-                        
-                        # Store the rating in the dictionary
-                        ratings[criterion['name']] = rating
+            if current_index < len(evaluation_criteria):
+                criterion = evaluation_criteria[current_index]
+                st.markdown(f"### {criterion['name']}")
+                st.markdown(f"*{criterion['description']}*")
+                st.markdown("**Scoring:**")
+                st.markdown(f"- **1:** {criterion['scoring']['1']}")
+                st.markdown(f"- **3:** {criterion['scoring']['3']}")
+                st.markdown(f"- **5:** {criterion['scoring']['5']}")
 
-                        # Button logic
-                        if i < len(evaluation_criteria) - 1:
-                            # For all but the last criterion, show "Next" button
-                            next_submitted = st.form_submit_button("➡️ Next", key=f"next_{current_input_index}_{output_index}_{criterion['name']}")
-                            if next_submitted:
-                                # Save the current rating
-                                st.session_state.responses.append({
-                                    'timestamp': datetime.now().isoformat(),
-                                    'page': 'testing',
-                                    'input': current_input_file.name,
-                                    'output': output_file.name,
-                                    'continuation_number': continuation_number,
-                                    'model': model_name,
-                                    'criterion': criterion['name'],
-                                    'rating': rating
-                                })
-                                st.experimental_rerun()
-                        else:
-                            # For the last criterion, show "Submit" button
-                            submit_submitted = st.form_submit_button("✅ Submit", key=f"submit_{current_input_index}_{output_index}_{criterion['name']}")
-                            if submit_submitted:
-                                # Save the current rating
-                                st.session_state.responses.append({
-                                    'timestamp': datetime.now().isoformat(),
-                                    'page': 'testing',
-                                    'input': current_input_file.name,
-                                    'output': output_file.name,
-                                    'continuation_number': continuation_number,
-                                    'model': model_name,
-                                    'criterion': criterion['name'],
-                                    'rating': rating
-                                })
-                                st.success("✅ Rating submitted successfully!")
-                                # Move to next output
-                                st.session_state.current_output_index += 1
-                                st.experimental_rerun()
-                # End of form
+                # Slider for rating
+                rating = st.slider(
+                    f"Rate {criterion['name']}:",
+                    min_value=1,
+                    max_value=5,
+                    value=3,
+                    step=1,
+                    key=f"{current_input_index}_{output_index}_{criterion['name']}"
+                )
+
+                # Button logic: Next or Submit
+                if current_index < len(evaluation_criteria) - 1:
+                    if st.button("➡️ Next"):
+                        # Save the current rating
+                        st.session_state.ratings[criterion['name']] = rating
+                        # Move to next criterion
+                        st.session_state.current_criterion_index += 1
+                        st.rerun()
+                else:
+                    if st.button("✅ Submit"):
+                        # Save the final rating
+                        st.session_state.ratings[criterion['name']] = rating
+                        # Save all ratings
+                        for crit_name, crit_rating in st.session_state.ratings.items():
+                            st.session_state.responses.append({
+                                'timestamp': datetime.now().isoformat(),
+                                'page': 'testing',
+                                'input': current_input_file.name,
+                                'output': output_file.name,
+                                'continuation_number': continuation_number,
+                                'model': model_name,
+                                'criterion': crit_name,
+                                'rating': crit_rating
+                            })
+                        st.success("✅ Rating submitted successfully!")
+                        # Reset ratings and move to next output
+                        st.session_state.ratings = {}
+                        st.session_state.current_criterion_index = 0
+                        st.session_state.current_output_index += 1
+                        st.rerun()
+            else:
+                st.error("All criteria have been rated.")
         else:
             # Move to next input
             st.session_state.current_input_index += 1
             st.session_state.current_output_index = 0
-            st.experimental_rerun()
+            st.rerun()
     else:
         st.session_state.page = 'closing'
-        st.experimental_rerun()
+        st.rerun()
 
 # Closing Page
 def closing_page():
