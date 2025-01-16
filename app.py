@@ -4,11 +4,11 @@ from pathlib import Path
 import random
 from datetime import datetime
 
-# Set page configuration FIRST with centered layout
+# Set page configuration
 st.set_page_config(
     page_title="AI Music Assistant User Testing",
-    layout="centered",  # Changed from "wide" to "centered"
-    initial_sidebar_state="collapsed"
+    layout="centered",
+    initial_sidebar_state="expanded"
 )
 
 # Initialize session state variables
@@ -57,14 +57,14 @@ if 'output_orders' not in st.session_state:
     st.session_state.output_orders = output_orders
 
 if 'total_steps' not in st.session_state:
-    # Calculate total steps: welcome + instructions + (inputs * outputs) + closing
+    # Calculate total steps: (inputs * outputs) = total ratings
     num_inputs = len(st.session_state.input_order)
     num_outputs = 4  # Assuming 4 models per input
-    st.session_state.total_steps = 2 + (num_inputs * num_outputs) + 1  # welcome, instructions, closing
+    st.session_state.total_steps = num_inputs * num_outputs  # e.g., 16 ratings
 
-# Function to reset the session (for testing purposes)
+# Function to reset the session
 def reset_session():
-    for key in ['page', 'responses', 'current_input_index', 'current_output_index', 'input_order', 'output_orders', 'total_steps', 'submitting']:
+    for key in ['page', 'responses', 'current_input_index', 'current_output_index', 'input_order', 'output_orders', 'total_steps']:
         if key in st.session_state:
             del st.session_state[key]
     st.rerun()
@@ -77,73 +77,75 @@ def init_db():
                      f"{st.secrets['postgres']['host']}:{st.secrets['postgres']['port']}/{st.secrets['postgres']['database']}"
             engine = create_engine(db_url, connect_args={"sslmode": st.secrets['postgres']['sslmode']})
             st.session_state.db_engine = engine
-            # Removed the success message as per instructions
         except Exception as e:
             st.error(f"Error connecting to PostgreSQL: {e}")
 
-# Function to save user information and ratings to PostgreSQL
+# Function to save user information and ratings to PostgreSQL with spinner
 def save_ratings():
     if 'db_engine' not in st.session_state:
         st.error("Database not initialized.")
         return
     engine = st.session_state.db_engine
     try:
-        with engine.begin() as connection:  # Use engine.begin to auto-commit
-            # Save user_info
-            for response in st.session_state.responses:
-                if response['page'] == 'welcome':
-                    insert_query = text("""
-                        INSERT INTO user_info (timestamp, musical_background, age, gender)
-                        VALUES (:timestamp, :musical_background, :age, :gender)
-                    """)
-                    connection.execute(insert_query, {
-                        'timestamp': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
-                        'musical_background': response.get('musical_background', ''),
-                        'age': response.get('age', ''),
-                        'gender': response.get('gender', '')
-                    })
-            # Save user_ratings
-            for response in st.session_state.responses:
-                if response['page'] == 'testing':
-                    insert_query = text("""
-                        INSERT INTO user_ratings (timestamp, input_file, output_file, continuation_number, criterion, rating)
-                        VALUES (:timestamp, :input_file, :output_file, :continuation_number, :criterion, :rating)
-                    """)
-                    connection.execute(insert_query, {
-                        'timestamp': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
-                        'input_file': response.get('input', ''),
-                        'output_file': response.get('output', ''),
-                        'continuation_number': response.get('continuation_number', 0),
-                        'criterion': response.get('criterion', ''),
-                        'rating': response.get('rating', 0)
-                    })
+        with st.spinner("Saving your ratings..."):
+            with engine.begin() as connection:  # Use engine.begin to auto-commit
+                # Save user_info
+                for response in st.session_state.responses:
+                    if response['page'] == 'welcome':
+                        insert_query = text("""
+                            INSERT INTO user_info (timestamp, musical_background, age, gender)
+                            VALUES (:timestamp, :musical_background, :age, :gender)
+                        """)
+                        connection.execute(insert_query, {
+                            'timestamp': response.get('timestamp', datetime.now().strftime('%Y-%m-%d %H:%M:%S')),
+                            'musical_background': response.get('musical_background', ''),
+                            'age': response.get('age', ''),
+                            'gender': response.get('gender', '')
+                        })
+                # Save user_ratings
+                for response in st.session_state.responses:
+                    if response['page'] == 'testing':
+                        insert_query = text("""
+                            INSERT INTO user_ratings (timestamp, input_file, output_file, continuation_number, model, criterion, rating)
+                            VALUES (:timestamp, :input_file, :output_file, :continuation_number, :model, :criterion, :rating)
+                        """)
+                        connection.execute(insert_query, {
+                            'timestamp': response.get('timestamp', datetime.now().strftime('%Y-%m-%d %H:%M:%S')),
+                            'input_file': response.get('input', ''),
+                            'output_file': response.get('output', ''),
+                            'continuation_number': response.get('continuation_number', 0),
+                            'model': response.get('model', ''),
+                            'criterion': response.get('criterion', ''),
+                            'rating': response.get('rating', 0)
+                        })
+        st.success("✅ Your information and ratings have been successfully saved. Thank you!")
     except Exception as e:
         st.error(f"Error saving ratings: {e}")
-        raise e  # Add this to display full error in Streamlit logs
 
-# Function to save feedback to PostgreSQL
+# Function to save feedback to PostgreSQL with spinner
 def save_feedback():
     if 'db_engine' not in st.session_state:
         st.error("Database not initialized.")
         return
     engine = st.session_state.db_engine
     try:
-        with engine.begin() as connection:
-            for response in st.session_state.responses:
-                if response['page'] == 'feedback':
-                    insert_query = text("""
-                        INSERT INTO user_feedback (timestamp, feedback)
-                        VALUES (:timestamp, :feedback)
-                    """)
-                    connection.execute(insert_query, {
-                        'timestamp': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
-                        'feedback': response.get('feedback', '')
-                    })
+        with st.spinner("Submitting your feedback..."):
+            with engine.begin() as connection:
+                for response in st.session_state.responses:
+                    if response['page'] == 'feedback':
+                        insert_query = text("""
+                            INSERT INTO user_feedback (timestamp, feedback)
+                            VALUES (:timestamp, :feedback)
+                        """)
+                        connection.execute(insert_query, {
+                            'timestamp': response.get('timestamp', datetime.now().strftime('%Y-%m-%d %H:%M:%S')),
+                            'feedback': response.get('feedback', '')
+                        })
+        st.success("✅ Your feedback has been submitted successfully.")
     except Exception as e:
         st.error(f"Error saving feedback: {e}")
-        raise e  # Add this to display full error in Streamlit logs
 
-# Mapping of input files to their descriptive names (without number of bars)
+# Mapping of input files to their descriptive names
 input_name_mapping = {
     "input-3.mp4": "Familiar Tonal Snippet",
     "input-4.mp4": "Medium-Length Original Melody",
@@ -200,15 +202,60 @@ evaluation_criteria = [
     }
 ]
 
+# Function to render the sidebar
+def render_sidebar():
+    st.sidebar.title("📋 Contents")
+    # First separator
+    st.sidebar.markdown("---")
+    
+    pages = ["welcome", "instructions", "testing", "closing"]
+    for page in pages:
+        display_name = page.capitalize()
+        if st.session_state.page == page:
+            # Highlight current page
+            st.sidebar.markdown(f"### **{display_name}**")
+        else:
+            st.sidebar.markdown(f"{display_name}")
+    
+    # Second separator
+    st.sidebar.markdown("---")
+    
+    # Only show Testing Progress or Completed when in Testing-related pages
+    if st.session_state.page in ['testing', 'closing']:
+        st.sidebar.subheader("📝 Testing Progress")
+        if st.session_state.page == 'closing':
+            # Completed
+            st.sidebar.markdown("Completed ✅")
+            st.sidebar.progress(1.0)
+        else:
+            total_continuations = st.session_state.total_steps
+            # Completed continuations
+            completed_continuations = len({
+                (resp['input'], resp['output'])
+                for resp in st.session_state.responses
+                if resp['page'] == 'testing'
+            })
+            progress_text = f"{completed_continuations}/{total_continuations} Continuations Completed"
+            st.sidebar.text(progress_text)
+            progress_percentage = completed_continuations / total_continuations if total_continuations else 0
+            st.sidebar.progress(progress_percentage)
+        
+        # Separator before Reset button
+        st.sidebar.markdown("---")
+    
+    # Reset Session Button
+    if st.sidebar.button("🔄 Reset Session"):
+        reset_session()
+
 # Welcome Page
 def welcome_page():
-    st.image("banner.png", use_container_width=True)  # Ensure 'banner.png' exists in your project directory
+    st.image("banner.png", use_container_width=True)  # Ensure 'banner.png' exists
     st.title("🎵 Welcome to the AI Music Assistant User Testing 🎵")
     st.markdown("""
         Thank you for participating! In this study, you'll listen to original MIDI files and continuations from various models. 
         Your feedback will help us enhance our AI's musical capabilities.
     """)
-
+    
     with st.form("user_info"):
         st.subheader("Please provide some information about yourself:")
         col1, col2 = st.columns(2)
@@ -227,7 +274,7 @@ def welcome_page():
         )
         submitted = st.form_submit_button("🚀 Start Testing")
         if submitted:
-            # Validate age, musical_background, and gender
+            # Validate inputs
             if not age.isdigit():
                 st.error("Please enter a valid age.")
             elif musical_background == "Select":
@@ -235,7 +282,7 @@ def welcome_page():
             elif gender == "Select":
                 st.error("Please select your gender.")
             else:
-                # Save user info with timestamp
+                # Save user info
                 st.session_state.responses.append({
                     'timestamp': datetime.now().isoformat(),
                     'page': 'welcome',
@@ -243,6 +290,7 @@ def welcome_page():
                     'age': age,
                     'gender': gender
                 })
+                # Move to instructions page
                 st.session_state.page = 'instructions'
                 st.rerun()
 
@@ -280,33 +328,17 @@ def instructions_page():
         st.session_state.page = 'testing'
         st.rerun()
 
-# Loading Page
-def loading_page():
-    st.markdown("### Please wait while we submit your answers. Do not close this tab.")
-    with st.spinner("Submitting your responses..."):
-        save_ratings()
-    # After submission, move to closing page
-    st.session_state.page = 'closing'
-    st.rerun()
-
-# Testing Page
+# Testing Page with Enhanced Tabs and Debug Button
 def testing_page():
     input_files = st.session_state.input_order
     current_input_index = st.session_state.current_input_index
-
-    # Calculate current step for progress bar
-    current_step = 2 + (current_input_index * 4) + st.session_state.current_output_index  # 2 for welcome and instructions
-    progress = current_step / st.session_state.total_steps
-    st.progress(progress)
-    st.sidebar.markdown(f"**Progress:** Step {current_step} of {st.session_state.total_steps}")
 
     if current_input_index < len(input_files):
         current_input_file = input_files[current_input_index]
         input_name = current_input_file.name  # e.g., 'input-3.mp4'
         descriptive_name = input_name_mapping.get(input_name, input_name)
-        st.header(f"🔊 Listening to Input MIDI: {descriptive_name}")
-        st.video(str(current_input_file))
-
+        
+        # Fetch outputs for the current input
         outputs = st.session_state.output_orders[current_input_file.name]
         output_index = st.session_state.current_output_index
         total_outputs = len(outputs)
@@ -315,70 +347,126 @@ def testing_page():
             current_output = outputs[output_index]
             continuation_number = output_index + 1  # 1 to 4
             output_file = current_output['file']
-            st.subheader(f"🎹 Continuation {continuation_number}")
+            model_name = current_output['model'].capitalize()  # e.g., 'Attention'
+
+            st.header(f"🔊 Listening to Input MIDI: {descriptive_name}")
+
+            # Conditional Rendering based on Continuation Number
+            if continuation_number == 1:
+                # For Continuation 1, display the input video normally
+                st.video(str(current_input_file))
+            else:
+                # For Continuations 2-4, display the input video inside a closed expander
+                with st.expander(f"🔍 View Input MIDI for Continuation {continuation_number}", expanded=False):
+                    st.video(str(current_input_file))
+
+            st.subheader(f"🎹 Continuation {continuation_number} - Model: {model_name}")
             st.video(str(output_file))
 
             with st.form(f"rating_form_{current_input_index}_{output_index}"):
                 st.markdown("**Please rate the following criteria:**")
+                
+                # Create tabs for each evaluation criterion
+                tab_names = [criterion['name'] for criterion in evaluation_criteria]
+                tabs = st.tabs(tab_names)
+
+                ratings = {}  # Dictionary to hold ratings for each criterion
+                unanswered_criteria = []  # List to track unanswered criteria
+
+                for tab, criterion in zip(tabs, evaluation_criteria):
+                    with tab:
+                        st.markdown(f"*{criterion['description']}*")
+                        st.markdown("**Scoring:**")
+                        st.markdown(f"- **1:** {criterion['scoring']['1']}")
+                        st.markdown(f"- **3:** {criterion['scoring']['3']}")
+                        st.markdown(f"- **5:** {criterion['scoring']['5']}")
+                        
+                        # Select box for rating with 'Select' as default
+                        rating = st.selectbox(
+                            f"Rate {criterion['name']}:",
+                            options=['Select', 1, 2, 3, 4, 5],
+                            index=0,
+                            key=f"{current_input_index}_{output_index}_{criterion['name']}"
+                        )
+                        
+                        # Store the rating in the dictionary
+                        ratings[criterion['name']] = rating
+
+                submitted = st.form_submit_button("Submit Ratings")
+                if submitted:
+                    # Check for unanswered criteria
+                    for criterion_name, rating in ratings.items():
+                        if rating == 'Select':
+                            unanswered_criteria.append(criterion_name)
+                    
+                    if unanswered_criteria:
+                        st.error("Please rate all criteria before submitting.")
+                        st.warning(f"Unanswered Criteria: {', '.join(unanswered_criteria)}")
+                    else:
+                        # Append all ratings at once to avoid multiple entries
+                        for criterion_name, rating in ratings.items():
+                            st.session_state.responses.append({
+                                'timestamp': datetime.now().isoformat(),
+                                'page': 'testing',
+                                'input': current_input_file.name,
+                                'output': output_file.name,
+                                'continuation_number': continuation_number,
+                                'model': model_name,
+                                'criterion': criterion_name,
+                                'rating': rating
+                            })
+                        st.success("✅ Ratings submitted successfully!")
+                        # Move to next output
+                        st.session_state.current_output_index += 1
+                        st.rerun()
+        
+            # Debug Submit Button
+            st.markdown("---")  # Separator before Debug button
+            if st.button("Debug Submit"):
                 for criterion in evaluation_criteria:
-                    st.markdown(f"### {criterion['name']}")
-                    st.markdown(f"*{criterion['description']}*")
-                    st.markdown("**Scoring:**")
-                    st.markdown(f"- **1:** {criterion['scoring']['1']}")
-                    st.markdown(f"- **3:** {criterion['scoring']['3']}")
-                    st.markdown(f"- **5:** {criterion['scoring']['5']}")
-                    rating = st.slider(
-                        f"Rate {criterion['name']}:",
-                        min_value=1,
-                        max_value=5,
-                        value=3,
-                        step=1,
-                        key=f"{current_input_index}_{output_index}_{criterion['name']}"
-                    )
-                    # Save each criterion rating
                     st.session_state.responses.append({
                         'timestamp': datetime.now().isoformat(),
                         'page': 'testing',
                         'input': current_input_file.name,
                         'output': output_file.name,
-                        'continuation_number': continuation_number,  # Using continuation number instead of model name
+                        'continuation_number': continuation_number,
+                        'model': model_name,
                         'criterion': criterion['name'],
-                        'rating': rating
+                        'rating': 3
                     })
-                    st.markdown("---")  # Divider between criteria
-
-                submitted = st.form_submit_button("Submit Rating")
-                if submitted:
-                    # Determine if this is the last rating
-                    is_last_input = (current_input_index == len(input_files) - 1)
-                    is_last_output = (output_index == total_outputs - 1)
-                    if is_last_input and is_last_output:
-                        # Move to loading page
-                        st.session_state.page = 'loading'
-                        st.rerun()
-                    else:
-                        st.success("✅ Rating submitted successfully!")
-                        # Move to next output
-                        st.session_state.current_output_index += 1
-                        st.rerun()
+                st.success("✅ Ratings submitted with default values (3).")
+                # Move to next output
+                st.session_state.current_output_index += 1
+                st.rerun()
         else:
-            # Move to next input
-            st.session_state.current_input_index += 1
-            st.session_state.current_output_index = 0
-            st.rerun()
+            # All outputs for the current input have been rated
+            # Check if it's the last input
+            if st.session_state.current_input_index + 1 >= len(input_files):
+                # All inputs have been processed, save ratings and move to closing
+                save_ratings()
+                st.session_state.page = 'closing'
+                st.rerun()
+            else:
+                # Move to next input
+                st.session_state.current_input_index += 1
+                st.session_state.current_output_index = 0
+                st.rerun()
     else:
         st.session_state.page = 'closing'
         st.rerun()
 
-# Closing Page
+# Closing Page with Balloons
 def closing_page():
-    st.image("closing_banner.png", use_container_width=True)  # Ensure 'closing_banner.png' exists in your project directory
+    st.image("closing_banner.png", use_container_width=True)  # Ensure 'closing_banner.png' exists
     st.title("✅ Thank You for Your Participation!")
     st.markdown("""
         We appreciate you taking the time to help us improve the AI Music Assistant. 
         Your feedback is invaluable and will contribute to the development of better musical tools.
     """)
 
+    # Trigger balloons effect after saving feedback
+    st.balloons()
+    
     with st.form("additional_feedback"):
         feedback = st.text_area("📝 Do you have any additional comments or suggestions?", "")
         submitted = st.form_submit_button("📤 Submit and Exit")
@@ -396,6 +484,9 @@ def closing_page():
 # Initialize Database Connection
 init_db()
 
+# Render the sidebar
+render_sidebar()
+
 # Navigation
 if st.session_state.page == 'welcome':
     welcome_page()
@@ -403,8 +494,6 @@ elif st.session_state.page == 'instructions':
     instructions_page()
 elif st.session_state.page == 'testing':
     testing_page()
-elif st.session_state.page == 'loading':
-    loading_page()
 elif st.session_state.page == 'closing':
     closing_page()
 else:
