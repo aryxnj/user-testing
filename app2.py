@@ -1,7 +1,5 @@
 import streamlit as st
-from sqlalchemy import create_engine, text
 from pathlib import Path
-import random
 from datetime import datetime
 
 # Set page configuration
@@ -28,89 +26,14 @@ if 'selected_model' not in st.session_state:
 # Function to reset the session
 def reset_session():
     keys_to_remove = [
-        'page', 'responses', 'uploaded_midi', 'selected_model', 
-        'db_engine'
+        'page', 'responses', 'uploaded_midi', 'selected_model'
     ]
     for key in keys_to_remove:
         if key in st.session_state:
             del st.session_state[key]
-    st.experimental_rerun()
+    st.rerun()
 
-# ================== Database Functions ==================
-def init_db():
-    """
-    Initialise database connection.
-    """
-    if 'db_engine' not in st.session_state:
-        try:
-            db_url = (
-                f"postgresql://{st.secrets['postgres']['user']}:"
-                f"{st.secrets['postgres']['password']}@"
-                f"{st.secrets['postgres']['host']}:"
-                f"{st.secrets['postgres']['port']}/"
-                f"{st.secrets['postgres']['database']}"
-            )
-            engine = create_engine(
-                db_url, 
-                connect_args={"sslmode": st.secrets['postgres']['sslmode']}
-            )
-            st.session_state.db_engine = engine
-        except Exception as e:
-            st.error(f"Error connecting to PostgreSQL: {e}")
-
-def save_user_info():
-    """
-    Save user information to the database.
-    """
-    if 'db_engine' not in st.session_state:
-        st.error("Database not initialised.")
-        return
-    engine = st.session_state.db_engine
-    try:
-        with st.spinner("Saving your information..."):
-            with engine.begin() as connection:
-                for response in st.session_state.responses:
-                    if response['page'] == 'welcome':
-                        insert_query = text("""
-                            INSERT INTO user_info (timestamp, musical_background, age, gender)
-                            VALUES (:timestamp, :musical_background, :age, :gender)
-                        """)
-                        connection.execute(insert_query, {
-                            'timestamp': response.get('timestamp', datetime.now().strftime('%Y-%m-%d %H:%M:%S')),
-                            'musical_background': response.get('musical_background', ''),
-                            'age': response.get('age', ''),
-                            'gender': response.get('gender', '')
-                        })
-        st.success("✅ Your information has been successfully saved. Thank you!")
-    except Exception as e:
-        st.error(f"Error saving user information: {e}")
-
-def save_feedback():
-    """
-    Save user feedback to the database.
-    """
-    if 'db_engine' not in st.session_state:
-        st.error("Database not initialised.")
-        return
-    engine = st.session_state.db_engine
-    try:
-        with st.spinner("Submitting your feedback..."):
-            with engine.begin() as connection:
-                for response in st.session_state.responses:
-                    if response['page'] == 'feedback':
-                        insert_query = text("""
-                            INSERT INTO user_feedback (timestamp, feedback)
-                            VALUES (:timestamp, :feedback)
-                        """)
-                        connection.execute(insert_query, {
-                            'timestamp': response.get('timestamp', datetime.now().strftime('%Y-%m-%d %H:%M:%S')),
-                            'feedback': response.get('feedback', '')
-                        })
-        st.success("✅ Your feedback has been submitted successfully.")
-    except Exception as e:
-        st.error(f"Error saving feedback: {e}")
-
-# ================== Evaluation Criteria (Reused from Second Script) ==================
+# ================== Evaluation Criteria ==================
 evaluation_criteria = [
     {
         "name": "Pitch/Tonal Coherence",
@@ -204,45 +127,9 @@ def welcome_page():
         a MIDI file, choose a model to generate a continuation, and evaluate or download the output. 
         Your feedback will help us enhance this system's musical capabilities.
     """)
-    
-    with st.form("user_info"):
-        st.subheader("Please provide some information about yourself:")
-        col1, col2 = st.columns(2)
-        with col1:
-            musical_background = st.selectbox(
-                "🎹 What is your musical background?",
-                options=["Select", "Beginner", "Intermediate", "Advanced"],
-                index=0
-            )
-        with col2:
-            age = st.text_input("🎂 Age:", "")
-        gender = st.selectbox(
-            "🧑 Gender:",
-            options=["Select", "Male", "Female", "Non-binary", "Other"],
-            index=0
-        )
-        submitted = st.form_submit_button("🚀 Continue")
-        if submitted:
-            # Validate inputs
-            if not age.isdigit():
-                st.error("Please enter a valid age.")
-            elif musical_background == "Select":
-                st.error("Please select your musical background.")
-            elif gender == "Select":
-                st.error("Please select your gender.")
-            else:
-                # Save user info in session state
-                st.session_state.responses.append({
-                    'timestamp': datetime.now().isoformat(),
-                    'page': 'welcome',
-                    'musical_background': musical_background,
-                    'age': age,
-                    'gender': gender
-                })
-                # Immediately attempt to save to DB if required
-                save_user_info()
-                st.session_state.page = 'instructions'
-                st.experimental_rerun()
+    if st.button("🚀 Continue"):
+        st.session_state.page = 'instructions'
+        st.rerun()
 
 # ================== Page 2: Instructions ==================
 def instructions_page():
@@ -266,7 +153,7 @@ def instructions_page():
     """)
     if st.button("✅ Proceed to Model Selection"):
         st.session_state.page = 'select_model'
-        st.experimental_rerun()
+        st.rerun()
 
 # ================== Page 3: Select Model & Upload ==================
 def select_model_page():
@@ -291,7 +178,7 @@ def select_model_page():
             st.session_state.selected_model = chosen_model
             # For now, do nothing advanced, just proceed to the 'output' page
             st.session_state.page = 'output'
-            st.experimental_rerun()
+            st.rerun()
 
 # ================== Page 4: Output & Rating ==================
 def output_page():
@@ -307,10 +194,8 @@ def output_page():
         return
 
     st.write(f"**Selected Model:** `{st.session_state.selected_model}`")
-    # Displaying or 'playing' the MIDI in Streamlit is not straightforward,
-    # but we can provide a download link and instructions.
 
-    # We'll store the uploaded file in memory. Let's create a download button for the user's MIDI.
+    # Create a download button for the user's MIDI.
     st.download_button(
         label="Download Generated MIDI",
         data=st.session_state.uploaded_midi.getvalue(),
@@ -320,7 +205,7 @@ def output_page():
 
     st.markdown("---")
 
-    # ========== Optional Ratings - Reusing Criteria from the second script ==========
+    # ========== Optional Ratings ==========
     st.subheader("Rate the Generated Continuation (Optional)")
     st.markdown("""
         Although this is currently just your own file, please feel free to experiment 
@@ -365,7 +250,7 @@ def output_page():
                 for criterion_name, rating_value in ratings.items():
                     st.session_state.responses.append({
                         'timestamp': datetime.now().isoformat(),
-                        'page': 'output',  # You might rename or keep for reference
+                        'page': 'output',
                         'model': st.session_state.selected_model,
                         'criterion': criterion_name,
                         'rating': rating_value
@@ -377,7 +262,7 @@ def output_page():
     # Button to proceed to Closing
     if st.button("Finish & Proceed"):
         st.session_state.page = 'closing'
-        st.experimental_rerun()
+        st.rerun()
 
 # ================== Page 5: Closing ==================
 def closing_page():
@@ -403,13 +288,10 @@ def closing_page():
                     'page': 'feedback',
                     'feedback': feedback
                 })
-            # Save the feedback to the database
-            save_feedback()
             st.markdown("### You may now close this window. Thanks again!")
             st.stop()
 
 # ================== Main Script Flow ==================
-init_db()         # Initialise the DB connection if possible
 render_sidebar()  # Render the sidebar each time
 
 # Navigation through pages
