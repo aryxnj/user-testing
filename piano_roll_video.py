@@ -11,10 +11,11 @@ from tqdm import tqdm  # For progress bar
 
 # Configure these paths
 SOUND_FONT_PATH = os.path.join(os.getcwd(), 'sounds', 'FluidR3_GM.sf2')  # Path to your SoundFont file
-INPUT_MIDI_FILE = 'input-6.mid'  # Your input MIDI file
-INPUT_MIDI_PATH = os.path.join(os.getcwd(), INPUT_MIDI_FILE)
+INPUT_MIDI_FILE = 'input-3.mid'  # Your input MIDI file
+INPUT_MIDI_DIR = os.path.join(os.getcwd(), 'input_midis')  # Directory containing the input MIDI files
+INPUT_MIDI_PATH = os.path.join(INPUT_MIDI_DIR, INPUT_MIDI_FILE)  # Full path to the input MIDI file
 OUTPUT_VIDEO_DIR = os.path.join(os.getcwd(), 'output_videos')  # Directory to save generated videos
-FINAL_VIDEO_PATH = os.path.join(OUTPUT_VIDEO_DIR, 'input-6.mp4')  # Final output video file path
+FINAL_VIDEO_PATH = os.path.join(OUTPUT_VIDEO_DIR, 'input-3.mp4')  # Final output video file path
 FPS = 30  # Frames per second for the video
 BPM = 130  # Updated Beats per minute
 BEATS_PER_BAR = 4  # Typically 4 beats per bar
