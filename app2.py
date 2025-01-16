@@ -7,13 +7,10 @@ from mido import MidiFile
 
 # ================== Utility Functions from First Script ==================
 def parse_midi(file_path):
-    """
-    Parse a MIDI file and extract note information.
-    Returns a list of dictionaries with note, velocity, start_time, duration.
-    """
+    """Parse a MIDI file and extract note information."""
     midi = MidiFile(file_path)
     notes = []
-    tempo = 500000  # default tempo
+    tempo = 500000
     ticks_per_beat = midi.ticks_per_beat
     track_times = [0] * len(midi.tracks)
 
@@ -49,11 +46,8 @@ def generate_midi_note_names():
     return midi_note_names
 
 def plot_piano_roll(notes):
-    """
-    Plot a piano roll without the moving red line.
-    """
     midi_note_names = generate_midi_note_names()
-    unique_notes = list(sorted({midi_note_names[n['note']] for n in notes if n['note'] in midi_note_names}))
+    unique_notes = sorted({midi_note_names[n['note']] for n in notes if n['note'] in midi_note_names})
     note_to_y = {note: idx for idx, note in enumerate(unique_notes)}
 
     fig, ax = plt.subplots(figsize=(16, 8))
@@ -84,16 +78,13 @@ st.set_page_config(
 
 if 'page' not in st.session_state:
     st.session_state.page = 'welcome'
-if 'responses' not in st.session_state:
-    st.session_state.responses = []
 if 'uploaded_midi' not in st.session_state:
     st.session_state.uploaded_midi = None
 if 'selected_model' not in st.session_state:
     st.session_state.selected_model = None
 
 def reset_session():
-    keys_to_remove = ['page', 'responses', 'uploaded_midi', 'selected_model']
-    for key in keys_to_remove:
+    for key in ['page', 'uploaded_midi', 'selected_model']:
         if key in st.session_state:
             del st.session_state[key]
     st.rerun()
@@ -121,15 +112,15 @@ def welcome_page():
         Thank you for trying out this AI Music Assistant. You can upload a MIDI file, select a model,
         and generate a continuation. Enjoy exploring!
     """)
-    st.video("output_videos/input-3.mp4") 
-    st.markdown("**Example Input 3: Familiar Tonal Snippet**")
-    st.video("output_videos/output-3-mono.mp4") 
-    st.markdown("**Example Output 3 - Mono Model**")
-    st.video("output_videos/output-3-lookback.mp4") 
-    st.markdown("**Example Output 3 - Lookback Model**")
     if st.button("🚀 Continue"):
         st.session_state.page = 'instructions'
         st.rerun()
+    st.video("input_midis/input-3.mp4")
+    st.markdown("**Example Input 3: Familiar Tonal Snippet**")
+    st.video("output_videos/output-3-mono.mp4")
+    st.markdown("**Example Output 3 - Mono Model**")
+    st.video("output_videos/output-3-lookback.mp4")
+    st.markdown("**Example Output 3 - Lookback Model**")
 
 # ================== Page 2: Instructions ==================
 def instructions_page():
@@ -141,8 +132,9 @@ def instructions_page():
         3. Listen, download, and view dynamic visualizations of the output.
         4. Use the provided tips and tutorials to guide you.
     """)
-    # Music Theory Tip as interactive element
-    st.info("🎵 **Music Theory Tip:** The circle of fifths is a visual representation of the relationships among the 12 tones of the chromatic scale, their corresponding key signatures, and the associated major and minor keys.")
+    # Fun Fact Pop-up
+    if st.button("Show Fun Fact"):
+        st.info("🤖 **Fun Fact:** Our AI Music Assistant is trained on thousands of MIDI files to understand musical patterns!")
     if st.button("✅ Proceed to Model Selection"):
         st.session_state.page = 'select_model'
         st.rerun()
@@ -151,9 +143,9 @@ def instructions_page():
 def select_model_page():
     st.title("🎶 Select Model & Upload MIDI File")
     st.markdown("""
-        Upload your MIDI file and choose a model. If you don't have a file, select a sample from below.
+        Upload your MIDI file and choose a model. If you don't have a file, select a sample from the dropdown.
     """)
-    # Detailed Model Descriptions
+
     model_descriptions = {
         'attention': "Uses attention mechanisms to focus on relevant musical patterns.",
         'basic': "A simple RNN-based model for melody continuation.",
@@ -168,28 +160,27 @@ def select_model_page():
     uploaded_file = st.file_uploader("Upload a MIDI file (.mid):", type=["mid"], help="Click to upload your own MIDI file.")
     chosen_model = st.selectbox("Choose a model:", models, help="Select a model to generate the continuation.")
 
-    # Sample MIDI Files
-    st.markdown("### Sample MIDI Files")
     sample_files = {
-        "Familiar Tonal Snippet": "input_videos/input-3.mid",
-        "Medium-Length Original Melody": "input_videos/input-4.mid",
-        "Atonal, Wide-Range Melody": "input_videos/input-5.mid",
-        "Long Repetitive Motif": "input_videos/input-6.mid"
+        "Familiar Tonal Snippet": "input_midis/input-3.mid",
+        "Medium-Length Original Melody": "input_midis/input-4.mid",
+        "Atonal, Wide-Range Melody": "input_midis/input-5.mid",
+        "Long Repetitive Motif": "input_midis/input-6.mid"
     }
-    for description, file_path in sample_files.items():
-        if st.button(f"Use Sample: {description}"):
-            try:
-                with open(file_path, "rb") as f:
-                    st.session_state.uploaded_midi = io.BytesIO(f.read())
-                st.info(f"Loaded sample: {description}")
-            except Exception as e:
-                st.error(f"Error loading sample: {e}")
+    selected_sample = st.selectbox("Or select a sample MIDI file:", list(sample_files.keys()))
+
+    # Load sample if chosen
+    if selected_sample:
+        try:
+            with open(sample_files[selected_sample], "rb") as f:
+                st.session_state.uploaded_midi = io.BytesIO(f.read())
+            st.info(f"Loaded sample: {selected_sample}")
+        except Exception as e:
+            st.error(f"Error loading sample: {e}")
 
     if st.button("Generate Continuation"):
         if st.session_state.uploaded_midi is None and uploaded_file is None:
             st.error("Please upload a MIDI file or select a sample first.")
         else:
-            # Prioritize user upload over sample
             if uploaded_file is not None:
                 st.session_state.uploaded_midi = uploaded_file
             st.session_state.selected_model = chosen_model
@@ -208,37 +199,32 @@ def output_page():
         return
 
     st.write(f"**Selected Model:** `{st.session_state.selected_model}`")
+
+    # Show piano roll immediately
+    try:
+        uploaded_midi_data = st.session_state.uploaded_midi.getvalue()
+        with open("temp_uploaded.mid", "wb") as temp_file:
+            temp_file.write(uploaded_midi_data)
+        notes = parse_midi("temp_uploaded.mid")
+        plot_piano_roll(notes)
+    except Exception as e:
+        st.error(f"Error generating piano roll: {e}")
+
+    st.markdown("### Listen to Your MIDI")
+    st.audio(st.session_state.uploaded_midi.getvalue(), format="audio/midi")
+
     st.download_button(
         label="Download Generated MIDI",
         data=st.session_state.uploaded_midi.getvalue(),
         file_name="generated_continuation.mid",
         mime="audio/midi"
     )
-    
-    # Button to generate piano roll video (placeholder)
-    if st.button("Generate Piano Roll Video"):
-        # Placeholder functionality: In reality, would call first script and then provide download link.
-        st.info("Piano roll video generation initiated. (Feature under development)")
-
-    # Dynamic Visualization: View Piano Roll
-    if st.button("View Piano Roll"):
-        # Parse MIDI and plot piano roll
-        # Save uploaded MIDI temporarily to use parse_midi
-        try:
-            # Create a temporary file-like object to read MIDI data
-            uploaded_midi_data = st.session_state.uploaded_midi.getvalue()
-            with open("temp_uploaded.mid", "wb") as temp_file:
-                temp_file.write(uploaded_midi_data)
-            notes = parse_midi("temp_uploaded.mid")
-            plot_piano_roll(notes)
-        except Exception as e:
-            st.error(f"Error generating piano roll: {e}")
-
-    # Audio player for uploaded MIDI (if possible)
-    st.markdown("### Listen to Your MIDI")
-    st.audio(st.session_state.uploaded_midi)
 
     st.markdown("---")
+    # Button to generate piano roll video (placeholder)
+    if st.button("Generate Piano Roll Video"):
+        st.info("Piano roll video generation initiated. (Feature under development)")
+
     if st.button("Finish & Proceed"):
         st.session_state.page = 'closing'
         st.rerun()
@@ -250,7 +236,10 @@ def closing_page():
     st.markdown("""
         We appreciate you exploring the AI Music Assistant. You can try running the same MIDI file with a different model below.
     """)
-    st.balloons()
+    # Trigger balloons only on initial page load
+    if 'balloons_shown' not in st.session_state:
+        st.balloons()
+        st.session_state.balloons_shown = True
 
     st.markdown("---")
     st.subheader("🔄 Rerun with a Different Model")
