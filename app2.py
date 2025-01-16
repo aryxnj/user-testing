@@ -16,7 +16,6 @@ if 'page' not in st.session_state:
 if 'responses' not in st.session_state:
     st.session_state.responses = []
 
-# We'll store the uploaded MIDI file and the model selection here
 if 'uploaded_midi' not in st.session_state:
     st.session_state.uploaded_midi = None
 
@@ -103,10 +102,8 @@ def render_sidebar():
     st.sidebar.title("📋 Contents")
     st.sidebar.markdown("---")
     
-    # Navigation pages in the order we'll use them
     pages = ["welcome", "instructions", "select_model", "output", "closing"]
     for page in pages:
-        # Capitalise the page names for display
         display_name = page.replace("_", " ").capitalize()
         if st.session_state.page == page:
             st.sidebar.markdown(f"### **{display_name}**")
@@ -120,7 +117,7 @@ def render_sidebar():
 
 # ================== Page 1: Welcome ==================
 def welcome_page():
-    st.image("banner.png", use_container_width=True)  # If you have a banner image
+    st.image("banner.png", use_container_width=True)
     st.title("🎵 Welcome to the AI Music Assistant 🎵")
     st.markdown("""
         Thank you for trying out this AI Music Assistant. In this application, you'll be able to upload 
@@ -135,19 +132,13 @@ def welcome_page():
 def instructions_page():
     st.title("📋 Instructions")
     st.markdown("""
-        ### Scoring Method
-
-        - For each model’s generated continuation of your uploaded melody, you can assign a score of **1 to 5** for each criterion.
-        - **Total the scores** for a composite result, or consider different weights for each criterion depending on priorities.
-        - **Compare results** across different model selections or parameter settings to draw conclusions about which configurations yield the most coherent, appealing, and stylistically appropriate continuations.
-
         ### Approach
 
         1. Upload your MIDI file on the next page.
         2. Select a model from the available list.
         3. The system will (for now) simply return your exact MIDI file as a “continuation.” 
            Future versions will generate genuinely new continuations.
-        4. You may listen to or download the output, view a piano roll video, and optionally provide a rating or feedback.
+        4. You may listen to or download the output, view a piano roll video, and optionally provide feedback.
 
         When you are ready, click below to proceed.
     """)
@@ -163,10 +154,7 @@ def select_model_page():
         Currently, the output will simply mirror your input MIDI while the generation feature is under development.
     """)
 
-    # Provide a file uploader for MIDI
     uploaded_file = st.file_uploader("Please upload a MIDI file (with .mid extension):", type=["mid"])
-
-    # Let the user pick from a set of models, same as second script
     models = ['attention', 'basic', 'lookback', 'mono']
     chosen_model = st.selectbox("Choose a model:", models)
 
@@ -176,11 +164,10 @@ def select_model_page():
         else:
             st.session_state.uploaded_midi = uploaded_file
             st.session_state.selected_model = chosen_model
-            # For now, do nothing advanced, just proceed to the 'output' page
             st.session_state.page = 'output'
             st.rerun()
 
-# ================== Page 4: Output & Rating ==================
+# ================== Page 4: Output ==================
 def output_page():
     st.title("🎼 Output Continuation")
     st.markdown("""
@@ -195,7 +182,6 @@ def output_page():
 
     st.write(f"**Selected Model:** `{st.session_state.selected_model}`")
 
-    # Create a download button for the user's MIDI.
     st.download_button(
         label="Download Generated MIDI",
         data=st.session_state.uploaded_midi.getvalue(),
@@ -205,96 +191,35 @@ def output_page():
 
     st.markdown("---")
 
-    # ========== Optional Ratings ==========
-    st.subheader("Rate the Generated Continuation (Optional)")
-    st.markdown("""
-        Although this is currently just your own file, please feel free to experiment 
-        with the rating criteria below. This will illustrate how the system collects 
-        and stores feedback for future AI-generated continuations.
-    """)
-
-    # Create form to collect ratings
-    with st.form("rating_form"):
-        st.markdown("**Please rate the following criteria:**")
-
-        tabs = st.tabs([criterion['name'] for criterion in evaluation_criteria])
-        ratings = {}
-        unanswered_criteria = []
-
-        for tab, criterion in zip(tabs, evaluation_criteria):
-            with tab:
-                st.markdown(f"*{criterion['description']}*")
-                st.markdown("**Scoring:**")
-                st.markdown(f"- **1:** {criterion['scoring']['1']}")
-                st.markdown(f"- **3:** {criterion['scoring']['3']}")
-                st.markdown(f"- **5:** {criterion['scoring']['5']}")
-                
-                rating = st.selectbox(
-                    f"Rate {criterion['name']}:",
-                    options=['Select', 1, 2, 3, 4, 5],
-                    index=0,
-                    key=f"rating_{criterion['name']}"
-                )
-                ratings[criterion['name']] = rating
-
-        submitted = st.form_submit_button("Submit Ratings")
-        if submitted:
-            for criterion_name, rating in ratings.items():
-                if rating == 'Select':
-                    unanswered_criteria.append(criterion_name)
-            if unanswered_criteria:
-                st.error("Please rate all criteria before submitting.")
-                st.warning(f"Unanswered Criteria: {', '.join(unanswered_criteria)}")
-            else:
-                # Append all ratings to session state
-                for criterion_name, rating_value in ratings.items():
-                    st.session_state.responses.append({
-                        'timestamp': datetime.now().isoformat(),
-                        'page': 'output',
-                        'model': st.session_state.selected_model,
-                        'criterion': criterion_name,
-                        'rating': rating_value
-                    })
-                st.success("✅ Ratings submitted successfully!")
-
-    st.markdown("---")
-
-    # Button to proceed to Closing
     if st.button("Finish & Proceed"):
         st.session_state.page = 'closing'
         st.rerun()
 
 # ================== Page 5: Closing ==================
 def closing_page():
-    st.image("closing_banner.png", use_container_width=True)  # If you have a closing banner
+    st.image("closing_banner.png", use_container_width=True)
     st.title("✅ Thank You for Using the AI Music Assistant!")
     st.markdown("""
         We appreciate you taking the time to explore this assistant. 
-        Your feedback is invaluable and will contribute to the development of more sophisticated musical tools.
+        Your feedback will contribute to the development of more sophisticated musical tools.
     """)
+    st.balloons()
 
-    st.balloons()  # Celebration effect
+    st.markdown("---")
+    st.subheader("🔄 Rerun with a Different Model")
+    st.markdown("Select a different model to rerun the continuation with the same MIDI file.")
 
-    with st.form("additional_feedback"):
-        feedback = st.text_area(
-            "📝 Do you have any additional comments or suggestions?", 
-            ""
-        )
-        submitted = st.form_submit_button("📤 Submit Feedback & Exit")
-        if submitted:
-            if feedback:
-                st.session_state.responses.append({
-                    'timestamp': datetime.now().isoformat(),
-                    'page': 'feedback',
-                    'feedback': feedback
-                })
-            st.markdown("### You may now close this window. Thanks again!")
-            st.stop()
+    models = ['attention', 'basic', 'lookback', 'mono']
+    new_model = st.selectbox("Choose a new model:", models, key="new_model_select")
+
+    if st.button("Run with New Model"):
+        st.session_state.selected_model = new_model
+        st.session_state.page = 'output'
+        st.rerun()
 
 # ================== Main Script Flow ==================
-render_sidebar()  # Render the sidebar each time
+render_sidebar()
 
-# Navigation through pages
 if st.session_state.page == 'welcome':
     welcome_page()
 elif st.session_state.page == 'instructions':
