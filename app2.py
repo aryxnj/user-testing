@@ -1,107 +1,107 @@
 import streamlit as st
 from pathlib import Path
 from datetime import datetime
+import io
+import matplotlib.pyplot as plt
+from mido import MidiFile
 
-# Set page configuration
+# ================== Utility Functions from First Script ==================
+def parse_midi(file_path):
+    """
+    Parse a MIDI file and extract note information.
+    Returns a list of dictionaries with note, velocity, start_time, duration.
+    """
+    midi = MidiFile(file_path)
+    notes = []
+    tempo = 500000  # default tempo
+    ticks_per_beat = midi.ticks_per_beat
+    track_times = [0] * len(midi.tracks)
+
+    for i, track in enumerate(midi.tracks):
+        for msg in track:
+            track_times[i] += msg.time
+            if msg.type == 'set_tempo':
+                tempo = msg.tempo
+            elif msg.type == 'note_on' and msg.velocity > 0:
+                note_start = track_times[i] * tempo / ticks_per_beat / 1_000_000
+                notes.append({
+                    'note': msg.note,
+                    'velocity': msg.velocity,
+                    'start_time': note_start,
+                    'duration': None
+                })
+            elif (msg.type == 'note_off' or (msg.type == 'note_on' and msg.velocity == 0)):
+                for note in reversed(notes):
+                    if note['note'] == msg.note and note['duration'] is None:
+                        note_end = track_times[i] * tempo / ticks_per_beat / 1_000_000
+                        note['duration'] = note_end - note['start_time']
+                        break
+    notes = [n for n in notes if n['duration'] is not None]
+    return notes
+
+def generate_midi_note_names():
+    note_names = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B']
+    midi_note_names = {}
+    for i in range(21, 109):
+        octave = (i // 12) - 1
+        note = note_names[i % 12]
+        midi_note_names[i] = f"{note}{octave}"
+    return midi_note_names
+
+def plot_piano_roll(notes):
+    """
+    Plot a piano roll without the moving red line.
+    """
+    midi_note_names = generate_midi_note_names()
+    unique_notes = list(sorted({midi_note_names[n['note']] for n in notes if n['note'] in midi_note_names}))
+    note_to_y = {note: idx for idx, note in enumerate(unique_notes)}
+
+    fig, ax = plt.subplots(figsize=(16, 8))
+    ax.set_ylim(-1, len(unique_notes))
+    ax.set_xlabel("Time (seconds)")
+    ax.set_ylabel("Notes")
+    ax.set_yticks(range(len(unique_notes)))
+    ax.set_yticklabels(unique_notes)
+    ax.grid(True, linestyle='--', linewidth=0.5)
+
+    for note_info in notes:
+        note_number = note_info['note']
+        note_name = midi_note_names.get(note_number)
+        if note_name and note_name in note_to_y:
+            y = note_to_y[note_name]
+            start = note_info['start_time']
+            duration = note_info['duration']
+            ax.broken_barh([(start, duration)], (y - 0.4, 0.8), facecolors='blue', alpha=0.5)
+
+    st.pyplot(fig)
+
+# ================== Streamlit App Setup ==================
 st.set_page_config(
     page_title="AI Music Assistant",
     layout="centered",
     initial_sidebar_state="expanded"
 )
 
-# ================== Session State Initialisation ==================
 if 'page' not in st.session_state:
     st.session_state.page = 'welcome'
-
 if 'responses' not in st.session_state:
     st.session_state.responses = []
-
 if 'uploaded_midi' not in st.session_state:
     st.session_state.uploaded_midi = None
-
 if 'selected_model' not in st.session_state:
     st.session_state.selected_model = None
 
-# Function to reset the session
 def reset_session():
-    keys_to_remove = [
-        'page', 'responses', 'uploaded_midi', 'selected_model'
-    ]
+    keys_to_remove = ['page', 'responses', 'uploaded_midi', 'selected_model']
     for key in keys_to_remove:
         if key in st.session_state:
             del st.session_state[key]
     st.rerun()
 
-# ================== Evaluation Criteria ==================
-evaluation_criteria = [
-    {
-        "name": "Pitch/Tonal Coherence",
-        "description": (
-            "How well does the continuation fit into an implied key or tonal centre established by "
-            "the primer melody (if any)? For atonal examples, does the model at least maintain consistent "
-            "intervallic relationships or avoid overly jarring leaps without intent?"
-        ),
-        "scoring": {
-            "1": "Completely random, no sense of pitch organisation",
-            "3": "Generally consistent pitches, occasional off-key notes if tonal context applies",
-            "5": "Strong tonal coherence, notes feel harmonically related or purposefully atonal but structured"
-        }
-    },
-    {
-        "name": "Rhythmic Stability & Flow",
-        "description": (
-            "Does the continuation maintain a clear rhythmic pulse and align well with the time signature "
-            "and feel of the initial segment? Is it rhythmically logical, or too erratic and disjointed?"
-        ),
-        "scoring": {
-            "1": "Erratic durations, awkward pauses, no clear rhythmic pattern",
-            "3": "Some stability, but occasional unnatural note placements",
-            "5": "Flows naturally, rhythmically coherent, and matches or complements the original rhythm"
-        }
-    },
-    {
-        "name": "Motivic & Thematic Continuity",
-        "description": (
-            "Does the continuation pick up on melodic motifs, patterns, or contours from the original melody "
-            "and develop them further? Or does it abruptly shift to unrelated ideas?"
-        ),
-        "scoring": {
-            "1": "Completely unrelated sequence, abrupt changes with no continuity",
-            "3": "Some fragments of previous patterns appear, but not consistently",
-            "5": "Smooth thematic development, clear recognition and transformation of initial motifs"
-        }
-    },
-    {
-        "name": "Range & Complexity Management",
-        "description": (
-            "How well does the model manage pitch range and complexity? Does it stay within a logical register, "
-            "or jump erratically across octaves? Is the complexity (interval sizes, rhythmic subdivisions) "
-            "appropriate for the style?"
-        ),
-        "scoring": {
-            "1": "Extreme register jumps without reason, overly complex or simplistic to the point of incoherence",
-            "3": "Generally appropriate complexity, a few overly large leaps or simplistic streaks",
-            "5": "Balanced complexity, maintains a comfortable range and adds variety without chaos"
-        }
-    },
-    {
-        "name": "Aesthetic/Subjective Appeal",
-        "description": (
-            "A more subjective measure of how pleasant, engaging, or musically “satisfying” the continuation sounds."
-        ),
-        "scoring": {
-            "1": "Unpleasant, jarring, or meaningless sequence",
-            "3": "Acceptable but somewhat bland or directionless",
-            "5": "Musically appealing, has a sense of purpose or emotional quality"
-        }
-    }
-]
-
 # ================== Sidebar Renderer ==================
 def render_sidebar():
     st.sidebar.title("📋 Contents")
     st.sidebar.markdown("---")
-    
     pages = ["welcome", "instructions", "select_model", "output", "closing"]
     for page in pages:
         display_name = page.replace("_", " ").capitalize()
@@ -109,9 +109,7 @@ def render_sidebar():
             st.sidebar.markdown(f"### **{display_name}**")
         else:
             st.sidebar.markdown(display_name)
-    
     st.sidebar.markdown("---")
-
     if st.sidebar.button("🔄 Reset Session"):
         reset_session()
 
@@ -120,10 +118,15 @@ def welcome_page():
     st.image("banner.png", use_container_width=True)
     st.title("🎵 Welcome to the AI Music Assistant 🎵")
     st.markdown("""
-        Thank you for trying out this AI Music Assistant. In this application, you'll be able to upload 
-        a MIDI file, choose a model to generate a continuation, and evaluate or download the output. 
-        Your feedback will help us enhance this system's musical capabilities.
+        Thank you for trying out this AI Music Assistant. You can upload a MIDI file, select a model,
+        and generate a continuation. Enjoy exploring!
     """)
+    st.video("output_videos/input-3.mp4") 
+    st.markdown("**Example Input 3: Familiar Tonal Snippet**")
+    st.video("output_videos/output-3-mono.mp4") 
+    st.markdown("**Example Output 3 - Mono Model**")
+    st.video("output_videos/output-3-lookback.mp4") 
+    st.markdown("**Example Output 3 - Lookback Model**")
     if st.button("🚀 Continue"):
         st.session_state.page = 'instructions'
         st.rerun()
@@ -132,16 +135,14 @@ def welcome_page():
 def instructions_page():
     st.title("📋 Instructions")
     st.markdown("""
-        ### Approach
-
-        1. Upload your MIDI file on the next page.
-        2. Select a model from the available list.
-        3. The system will (for now) simply return your exact MIDI file as a “continuation.” 
-           Future versions will generate genuinely new continuations.
-        4. You may listen to or download the output, view a piano roll video, and optionally provide feedback.
-
-        When you are ready, click below to proceed.
+        **Approach:**
+        1. Upload a MIDI file and select a model.
+        2. The system will return your MIDI file as a “continuation.”
+        3. Listen, download, and view dynamic visualizations of the output.
+        4. Use the provided tips and tutorials to guide you.
     """)
+    # Music Theory Tip as interactive element
+    st.info("🎵 **Music Theory Tip:** The circle of fifths is a visual representation of the relationships among the 12 tones of the chromatic scale, their corresponding key signatures, and the associated major and minor keys.")
     if st.button("✅ Proceed to Model Selection"):
         st.session_state.page = 'select_model'
         st.rerun()
@@ -150,19 +151,47 @@ def instructions_page():
 def select_model_page():
     st.title("🎶 Select Model & Upload MIDI File")
     st.markdown("""
-        Upload your MIDI file below and choose which model you would like to use for generating a continuation.
-        Currently, the output will simply mirror your input MIDI while the generation feature is under development.
+        Upload your MIDI file and choose a model. If you don't have a file, select a sample from below.
     """)
-
-    uploaded_file = st.file_uploader("Please upload a MIDI file (with .mid extension):", type=["mid"])
+    # Detailed Model Descriptions
+    model_descriptions = {
+        'attention': "Uses attention mechanisms to focus on relevant musical patterns.",
+        'basic': "A simple RNN-based model for melody continuation.",
+        'lookback': "Considers previous sections of music to generate coherent continuations.",
+        'mono': "Generates monophonic melodies with basic structure."
+    }
     models = ['attention', 'basic', 'lookback', 'mono']
-    chosen_model = st.selectbox("Choose a model:", models)
+    st.markdown("**Model Options:**")
+    for model in models:
+        st.markdown(f"- **{model.capitalize()}**: {model_descriptions[model]}")
+
+    uploaded_file = st.file_uploader("Upload a MIDI file (.mid):", type=["mid"], help="Click to upload your own MIDI file.")
+    chosen_model = st.selectbox("Choose a model:", models, help="Select a model to generate the continuation.")
+
+    # Sample MIDI Files
+    st.markdown("### Sample MIDI Files")
+    sample_files = {
+        "Familiar Tonal Snippet": "input_videos/input-3.mid",
+        "Medium-Length Original Melody": "input_videos/input-4.mid",
+        "Atonal, Wide-Range Melody": "input_videos/input-5.mid",
+        "Long Repetitive Motif": "input_videos/input-6.mid"
+    }
+    for description, file_path in sample_files.items():
+        if st.button(f"Use Sample: {description}"):
+            try:
+                with open(file_path, "rb") as f:
+                    st.session_state.uploaded_midi = io.BytesIO(f.read())
+                st.info(f"Loaded sample: {description}")
+            except Exception as e:
+                st.error(f"Error loading sample: {e}")
 
     if st.button("Generate Continuation"):
-        if uploaded_file is None:
-            st.error("Please upload a MIDI file first.")
+        if st.session_state.uploaded_midi is None and uploaded_file is None:
+            st.error("Please upload a MIDI file or select a sample first.")
         else:
-            st.session_state.uploaded_midi = uploaded_file
+            # Prioritize user upload over sample
+            if uploaded_file is not None:
+                st.session_state.uploaded_midi = uploaded_file
             st.session_state.selected_model = chosen_model
             st.session_state.page = 'output'
             st.rerun()
@@ -171,9 +200,7 @@ def select_model_page():
 def output_page():
     st.title("🎼 Output Continuation")
     st.markdown("""
-        Below is the continuation generated by the selected model. 
-        At this stage, we are simply returning the same file you uploaded. 
-        Future versions will provide genuine AI-driven continuations.
+        Below is the continuation generated by the selected model. Currently, it's the same as your input.
     """)
 
     if st.session_state.uploaded_midi is None:
@@ -181,16 +208,37 @@ def output_page():
         return
 
     st.write(f"**Selected Model:** `{st.session_state.selected_model}`")
-
     st.download_button(
         label="Download Generated MIDI",
         data=st.session_state.uploaded_midi.getvalue(),
         file_name="generated_continuation.mid",
         mime="audio/midi"
     )
+    
+    # Button to generate piano roll video (placeholder)
+    if st.button("Generate Piano Roll Video"):
+        # Placeholder functionality: In reality, would call first script and then provide download link.
+        st.info("Piano roll video generation initiated. (Feature under development)")
+
+    # Dynamic Visualization: View Piano Roll
+    if st.button("View Piano Roll"):
+        # Parse MIDI and plot piano roll
+        # Save uploaded MIDI temporarily to use parse_midi
+        try:
+            # Create a temporary file-like object to read MIDI data
+            uploaded_midi_data = st.session_state.uploaded_midi.getvalue()
+            with open("temp_uploaded.mid", "wb") as temp_file:
+                temp_file.write(uploaded_midi_data)
+            notes = parse_midi("temp_uploaded.mid")
+            plot_piano_roll(notes)
+        except Exception as e:
+            st.error(f"Error generating piano roll: {e}")
+
+    # Audio player for uploaded MIDI (if possible)
+    st.markdown("### Listen to Your MIDI")
+    st.audio(st.session_state.uploaded_midi)
 
     st.markdown("---")
-
     if st.button("Finish & Proceed"):
         st.session_state.page = 'closing'
         st.rerun()
@@ -200,18 +248,15 @@ def closing_page():
     st.image("closing_banner.png", use_container_width=True)
     st.title("✅ Thank You for Using the AI Music Assistant!")
     st.markdown("""
-        We appreciate you taking the time to explore this assistant. 
-        Your feedback will contribute to the development of more sophisticated musical tools.
+        We appreciate you exploring the AI Music Assistant. You can try running the same MIDI file with a different model below.
     """)
     st.balloons()
 
     st.markdown("---")
     st.subheader("🔄 Rerun with a Different Model")
     st.markdown("Select a different model to rerun the continuation with the same MIDI file.")
-
     models = ['attention', 'basic', 'lookback', 'mono']
     new_model = st.selectbox("Choose a new model:", models, key="new_model_select")
-
     if st.button("Run with New Model"):
         st.session_state.selected_model = new_model
         st.session_state.page = 'output'
@@ -219,7 +264,6 @@ def closing_page():
 
 # ================== Main Script Flow ==================
 render_sidebar()
-
 if st.session_state.page == 'welcome':
     welcome_page()
 elif st.session_state.page == 'instructions':
