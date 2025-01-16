@@ -305,7 +305,7 @@ def select_model_page():
             st.session_state.uploaded_midi = midi_bytes
             st.session_state.selected_model = chosen_model
             st.session_state.preview_shown = True
-            st.experimental_rerun()
+            st.rerun()
 
     else:
         # If preview_shown is True, show the Piano Roll and Audio Player
