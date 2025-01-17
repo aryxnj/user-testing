@@ -79,48 +79,74 @@ def generate_midi_note_names() -> dict:
         midi_note_names[i] = f"{note}{octave}"
     return midi_note_names
 
-def create_piano_roll(data: pd.DataFrame) -> plt.Figure:
+def create_static_piano_roll(data, total_time_in_seconds):
     """
-    Create a static piano roll plot (no red line) and return the matplotlib Figure.
+    Create a static piano roll plot with all notes in a faded blue colour.
+    Returns a matplotlib Figure.
     """
     midi_note_names = generate_midi_note_names()
-
-    # Map 'note' -> 'note_name'
+    
+    # Define all piano notes from A0 to C8
+    unique_notes = [midi_note_names[i] for i in range(21, 109)]
+    
+    # Create a mapping for y-axis positions
+    note_to_y = {note: idx for idx, note in enumerate(unique_notes)}
+    
+    # Map data['note'] to note names, filter out any notes outside the piano range
     data['note_name'] = data['note'].map(midi_note_names).dropna()
-    valid_data = data[data['note_name'].notnull()].copy()
-    if valid_data.empty:
-        fig, ax = plt.subplots(figsize=(10, 5))
-        ax.text(0.5, 0.5, "No notes to display.", ha='center', va='center', fontsize=14)
-        return fig
+    
+    # Determine the octaves played based on the notes in the MIDI file
+    played_notes = data['note'].unique()
+    played_octaves = sorted(set((note // 12) - 1 for note in played_notes if 21 <= note <= 108))
+    
+    # Filter unique_notes to include only the octaves played
+    filtered_notes = []
+    for octave in played_octaves:
+        for note in ['C', 'C#', 'D', 'D#', 'E', 'F',
+                    'F#', 'G', 'G#', 'A', 'A#', 'B']:
+            try:
+                note_index = ['C', 'C#', 'D', 'D#', 'E', 'F',
+                              'F#', 'G', 'G#', 'A', 'A#', 'B'].index(note)
+            except ValueError:
+                continue  # Skip invalid notes
+            midi_num = (octave + 1) * 12 + note_index
+            if 21 <= midi_num <= 108:
+                filtered_notes.append(f"{note}{octave}")
+    
+    # Update y-axis mappings based on filtered_notes
+    unique_notes = filtered_notes
+    note_to_y = {note: idx for idx, note in enumerate(unique_notes)}
 
-    unique_notes_used = sorted(
-        valid_data['note_name'].unique(),
-        key=lambda x: (int(x[-1]), x[:-1])  # sort by octave + pitch
-    )
-    note_to_y = {note: idx for idx, note in enumerate(unique_notes_used)}
-
-    max_start_time = valid_data['start_time'].max()
-    max_duration = valid_data['duration'].max()
-    total_time_in_seconds = max_start_time + max_duration
-
-    fig, ax = plt.subplots(figsize=(15, 6))
-    ax.set_yticks(range(len(unique_notes_used)))
-    ax.set_yticklabels(unique_notes_used)
-    ax.set_xlabel("Time (seconds)")
+    # Create a figure for the static piano roll
+    fig, ax = plt.subplots(figsize=(16, 8))
+    ax.set_ylim(-1, len(unique_notes))
+    ax.set_xlim(0, total_time_in_seconds / SECONDS_PER_BAR)  # X-axis in bars
+    ax.set_xlabel("Bars")
     ax.set_ylabel("Notes")
-    ax.set_title("Piano Roll Visualisation")
-    ax.set_xlim(0, total_time_in_seconds)
-    ax.grid(True, linestyle='--', linewidth=0.5)
+    ax.set_title("Static Piano Roll Visualisation")
+    ax.set_yticks(range(len(unique_notes)))
+    ax.set_yticklabels(unique_notes)
+    ax.grid(True, which='both', linestyle='--', linewidth=0.5)
 
-    for _, row in valid_data.iterrows():
-        note_name = row['note_name']
+    # Plot all notes as faded blue boxes
+    for _, note_info in data.iterrows():
+        note_number = note_info['note']
+        note_name = midi_note_names.get(note_number, None)
+        if note_name is None or note_name not in unique_notes:
+            continue  # Skip notes outside the filtered range
         y = note_to_y[note_name]
-        start = row['start_time']
-        duration = row['duration']
-        ax.broken_barh([(start, duration)], (y - 0.4, 0.8), facecolors='blue')
-
+        # Calculate start_bar and duration_bars
+        start_bar = note_info['start_time'] / SECONDS_PER_BAR
+        duration_bars = note_info['duration'] / SECONDS_PER_BAR
+        ax.broken_barh([(start_bar, duration_bars)],
+                      (y - 0.4, 0.8),
+                      facecolors=(0, 0, 1, 0.3),  # Faded blue with alpha=0.3
+                      edgecolors='black',
+                      linewidth=0.5)
+    
     plt.tight_layout()
     return fig
+
 
 def convert_midi_to_wav(midi_data: bytes) -> bytes:
     """
@@ -306,7 +332,8 @@ def select_model_page():
                 tmp.flush()
                 df = parse_midi(tmp.name)
             if not df.empty:
-                fig = create_piano_roll(df)
+                total_time_in_seconds = df['start_time'].max() + df['duration'].max()
+                fig = create_static_piano_roll(df, total_time_in_seconds)
                 st.pyplot(fig)
                 try:
                     wav_bytes = convert_midi_to_wav(st.session_state.uploaded_midi)
@@ -348,7 +375,8 @@ def output_page():
     if df.empty:
         st.warning("No valid notes found in this MIDI.")
     else:
-        fig = create_piano_roll(df)
+        total_time_in_seconds = df['start_time'].max() + df['duration'].max()
+        fig = create_static_piano_roll(df, total_time_in_seconds)
         st.pyplot(fig)
 
     # Audio preview
