@@ -122,28 +122,6 @@ def create_piano_roll(data: pd.DataFrame) -> plt.Figure:
     plt.tight_layout()
     return fig
 
-def convert_midi_to_wav(midi_data: bytes) -> bytes:
-    """
-    Convert MIDI bytes to WAV bytes using FluidSynth.
-    """
-    import tempfile
-
-    with tempfile.NamedTemporaryFile(delete=False, suffix=".mid") as tmp_mid:
-        tmp_mid.write(midi_data)
-        tmp_mid_path = tmp_mid.name
-
-    with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as tmp_wav:
-        tmp_wav_path = tmp_wav.name
-
-    fs.midi_to_audio(tmp_mid_path, tmp_wav_path)
-
-    with open(tmp_wav_path, 'rb') as f:
-        wav_bytes = f.read()
-
-    os.remove(tmp_mid_path)
-    os.remove(tmp_wav_path)
-    return wav_bytes
-
 def generate_piano_roll_video(midi_bytes: bytes) -> bytes:
     """
     Placeholder for creating a piano roll video from the given MIDI bytes.
@@ -308,12 +286,8 @@ def select_model_page():
             if not df.empty:
                 fig = create_piano_roll(df)
                 st.pyplot(fig)
-                try:
-                    wav_bytes = convert_midi_to_wav(st.session_state.uploaded_midi)
-                    st.markdown("### Listen to Your Selection:")
-                    st.audio(wav_bytes, format="audio/wav")
-                except Exception as e:
-                    st.warning(f"Could not create audio preview: {e}")
+                st.markdown("### Listen to Your Selection:")
+                st.audio(st.session_state.uploaded_midi, format="audio/midi")
             else:
                 st.warning("No valid notes found in the selected MIDI.")
 
@@ -352,12 +326,9 @@ def output_page():
         st.pyplot(fig)
 
     # Audio preview
-    try:
-        wav_bytes = convert_midi_to_wav(st.session_state.uploaded_midi)
-        st.markdown("### Listen to the Continuation:")
-        st.audio(wav_bytes, format="audio/wav")
-    except Exception as e:
-        st.warning(f"Could not provide an audio preview: {e}")
+        st.markdown("### Listen to Your Selection:")
+        st.audio(st.session_state.uploaded_midi, format="audio/midi")
+
 
     # MIDI download
     st.download_button(
