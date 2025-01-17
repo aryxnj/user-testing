@@ -103,12 +103,12 @@ def create_static_piano_roll(data, total_time_in_seconds):
     filtered_notes = []
     for octave in played_octaves:
         for note in ['C', 'C#', 'D', 'D#', 'E', 'F',
-                     'F#', 'G', 'G#', 'A', 'A#', 'B']:
+                    'F#', 'G', 'G#', 'A', 'A#', 'B']:
             try:
                 note_index = ['C', 'C#', 'D', 'D#', 'E', 'F',
                               'F#', 'G', 'G#', 'A', 'A#', 'B'].index(note)
             except ValueError:
-                continue
+                continue  # Skip invalid notes
             midi_num = (octave + 1) * 12 + note_index
             if 21 <= midi_num <= 108:
                 filtered_notes.append(f"{note}{octave}")
@@ -133,19 +133,20 @@ def create_static_piano_roll(data, total_time_in_seconds):
         note_number = note_info['note']
         note_name = midi_note_names.get(note_number, None)
         if note_name is None or note_name not in unique_notes:
-            continue
+            continue  # Skip notes outside the filtered range
         y = note_to_y[note_name]
         # Calculate start_bar and duration_bars
         start_bar = note_info['start_time'] / SECONDS_PER_BAR
         duration_bars = note_info['duration'] / SECONDS_PER_BAR
         ax.broken_barh([(start_bar, duration_bars)],
-                       (y - 0.4, 0.8),
-                       facecolors=(0, 0, 1, 0.3),
-                       edgecolors='black',
-                       linewidth=0.5)
+                      (y - 0.4, 0.8),
+                      facecolors=(0, 0, 1, 0.3),  # Faded blue with alpha=0.3
+                      edgecolors='black',
+                      linewidth=0.5)
     
     plt.tight_layout()
     return fig
+
 
 def convert_midi_to_wav(midi_data: bytes) -> bytes:
     """
@@ -171,135 +172,9 @@ def convert_midi_to_wav(midi_data: bytes) -> bytes:
 
 def generate_piano_roll_video(midi_bytes: bytes) -> bytes:
     """
-    Create a piano roll video (no red line) by generating frames,
-    encoding them with FFmpeg, then merging with audio.
-    Returns the final .mp4 video as bytes.
+    Placeholder for creating a piano roll video from the given MIDI bytes.
     """
-    import tempfile
-
-    # 1) Write the MIDI bytes to a temporary file
-    with tempfile.NamedTemporaryFile(delete=False, suffix=".mid") as tmp_mid:
-        tmp_mid.write(midi_bytes)
-        tmp_mid_path = tmp_mid.name
-
-    # 2) Parse MIDI to get timeline data
-    midi_data = parse_midi(tmp_mid_path)
-    if midi_data.empty:
-        return b""
-
-    total_time_in_seconds = midi_data['start_time'].max() + midi_data['duration'].max()
-
-    # 3) Convert MIDI to WAV for final audio track
-    with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as tmp_wav:
-        tmp_wav_path = tmp_wav.name
-    fs.midi_to_audio(tmp_mid_path, tmp_wav_path)
-
-    # 4) Generate frames in a temporary frames directory
-    frames_dir = tempfile.mkdtemp()
-    frame_count = int(total_time_in_seconds * FPS)
-    progress_bar = st.progress(0)  # Show progress in the Streamlit interface
-    midi_note_names = generate_midi_note_names()
-
-    # Define all piano notes from A0 to C8
-    unique_notes = [midi_note_names[i] for i in range(21, 109)]
-    note_to_y = {note: idx for idx, note in enumerate(unique_notes)}
-
-    # Filter out-of-range notes
-    midi_data['note_name'] = midi_data['note'].map(midi_note_names).dropna()
-
-    # Determine the octaves played
-    played_notes = midi_data['note'].unique()
-    played_octaves = sorted(set((n // 12) - 1 for n in played_notes if 21 <= n <= 108))
-
-    filtered_notes = []
-    for octave in played_octaves:
-        for note in ['C', 'C#', 'D', 'D#', 'E', 'F',
-                     'F#', 'G', 'G#', 'A', 'A#', 'B']:
-            midi_num = (octave + 1) * 12 + ['C', 'C#', 'D', 'D#', 'E',
-                                           'F', 'F#', 'G', 'G#', 'A',
-                                           'A#', 'B'].index(note)
-            if 21 <= midi_num <= 108:
-                filtered_notes.append(f"{note}{octave}")
-
-    unique_notes = filtered_notes
-    note_to_y = {note: idx for idx, note in enumerate(unique_notes)}
-
-    for frame_idx in range(frame_count):
-        current_time = frame_idx / FPS
-        fig, ax = plt.subplots(figsize=(16, 8))
-        ax.set_ylim(-1, len(unique_notes))
-        ax.set_xlim(0, total_time_in_seconds / SECONDS_PER_BAR)
-        ax.set_xlabel("Bars")
-        ax.set_ylabel("Notes")
-        ax.set_title("Generated Piano Roll")
-        ax.set_yticks(range(len(unique_notes)))
-        ax.set_yticklabels(unique_notes)
-        ax.grid(True, which='both', linestyle='--', linewidth=0.5)
-
-        # Plot all notes as faded boxes where they overlap current_time
-        for _, note_info in midi_data.iterrows():
-            note_number = note_info['note']
-            note_name = midi_note_names.get(note_number, None)
-            if note_name not in unique_notes:
-                continue
-            start_bar = note_info['start_time'] / SECONDS_PER_BAR
-            duration_bars = note_info['duration'] / SECONDS_PER_BAR
-            y = note_to_y[note_name]
-            ax.broken_barh([(start_bar, duration_bars)],
-                           (y - 0.4, 0.8),
-                           facecolors=(0, 0, 1, 0.3),
-                           edgecolors='black',
-                           linewidth=0.5)
-
-        frame_filename = os.path.join(frames_dir, f"frame_{frame_idx:05d}.png")
-        plt.tight_layout()
-        plt.savefig(frame_filename)
-        plt.close(fig)
-
-        # Update progress
-        progress_percentage = int((frame_idx + 1) / frame_count * 100)
-        progress_bar.progress(progress_percentage)
-
-    progress_bar.empty()
-
-    # 5) Use FFmpeg to create the video from frames
-    temp_video_path = os.path.join(frames_dir, "temp_video.mp4")
-    ffmpeg_video_cmd = [
-        "ffmpeg",
-        "-y",
-        "-framerate", str(FPS),
-        "-i", os.path.join(frames_dir, "frame_%05d.png"),
-        "-c:v", "libx264",
-        "-pix_fmt", "yuv420p",
-        temp_video_path
-    ]
-    subprocess.run(ffmpeg_video_cmd, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-
-    # 6) Merge video with audio
-    final_video_path = os.path.join(frames_dir, "final_video.mp4")
-    ffmpeg_merge_cmd = [
-        "ffmpeg",
-        "-y",
-        "-i", temp_video_path,
-        "-i", tmp_wav_path,
-        "-c:v", "copy",
-        "-c:a", "aac",
-        "-strict", "experimental",
-        final_video_path
-    ]
-    subprocess.run(ffmpeg_merge_cmd, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-
-    # Read final video as bytes
-    with open(final_video_path, "rb") as f:
-        video_bytes = f.read()
-
-    # Cleanup
-    os.remove(temp_video_path)
-    os.remove(tmp_wav_path)
-    os.remove(tmp_mid_path)
-    shutil.rmtree(frames_dir, ignore_errors=True)
-
-    return video_bytes
+    return b"VIDEO_PLACEHOLDER"
 
 
 # =======================================
@@ -352,17 +227,17 @@ def welcome_page():
         We hope you enjoy this small taste of AI-assisted composition!
     """)
 
-    st.subheader("Original Input (input-3): A Familiar Tonal Snippet")
-    st.video("output_videos/input-3.mp4")
+    with st.expander("View Example Videos of Input/Output"):
+        st.markdown("**Input: Familiar Tonal Snippet (input-3)**")
+        st.video("output_videos/input-3.mp4")
 
-    st.subheader("Mono Model Output (output-3-mono): A Monophonic Continuation")
-    st.video("output_videos/output-3-mono.mp4")
+        st.markdown("**Output: Continuation by Mono Model (output-3-mono)**")
+        st.video("output_videos/output-3-mono.mp4")
 
-    st.subheader("Lookback Model Output (output-3-lookback): A Continuation Considering Prior Measures")
-    st.video("output_videos/output-3-lookback.mp4")
+        st.markdown("**Output: Continuation by Lookback Model (output-3-lookback)**")
+        st.video("output_videos/output-3-lookback.mp4")
 
     st.markdown("---")
-    st.info("When you're done viewing these examples, click the button below to continue.")
     if st.button("Continue to Instructions"):
         st.session_state.page = 'instructions'
         st.rerun()
@@ -387,22 +262,19 @@ def instructions_page():
 
         4. **Download**  
            If you like, you can download both the MIDI version of the result and a generated video 
-           showing the piano roll in motion.
+           showing the piano roll in motion (currently a placeholder).
 
         ---
-        **Magenta Model Notes** (Melody RNN):  
-        - **basic**: A simple recurrent neural network that learns sequential note-to-note patterns.  
-        - **lookback**: References measures from the past to inform future notes, allowing more thematic consistency.  
-        - **attention**: Utilises attention mechanisms to focus on key melodic motifs, shaping coherent developments.  
-        - **mono**: Ensures only one note sounds at any given time, offering a purely monophonic line.
-
-        These models are part of the Magenta project by Google, which explores machine learning as a tool in the creative process. 
+        **Magenta Model Notes**:  
+        - **basic**: A simple RNN-based approach.  
+        - **lookback**: Considers prior measures for context.  
+        - **attention**: Uses attention mechanisms to focus on relevant sections.  
+        - **mono**: A monophonic model ensuring only one note sounds at a time.
 
         ---
-        *Tip: Large leaps can add excitement but may sound jarring if overused. Try listening for smooth stepwise motion versus leaps!*
+        Click below when you're ready to choose a MIDI and model.
     """)
 
-    st.info("Next step: upload or choose a MIDI file, then select a model. Explore the pop-ups and side notes for music tips!")
     st.markdown("---")
     if st.button("Proceed to Model Selection"):
         st.session_state.page = 'select_model'
@@ -411,47 +283,35 @@ def instructions_page():
 # ================== Page 3: Select Model & Upload ==================
 def select_model_page():
     st.title("Upload or Select a MIDI File, Then Choose a Model")
-    st.warning("Remember: For strongly tonal examples, a V–I cadence can provide a satisfying ending!")
 
     # Toggle between uploading a file or using a sample
     input_method = st.radio("Select input method:", ["Upload MIDI", "Use Sample"])
 
-    # Show library of samples or file uploader
+    # Depending on the choice, show the corresponding input and grey out the other
     if input_method == "Upload MIDI":
         uploaded_file = st.file_uploader("Upload a MIDI file (.mid):", type=["mid"])
+        # Hide sample selection when uploading
         sample_options = {}
         chosen_sample = None
     else:
-        st.markdown("""
-            **Sample MIDI Files Library**:
-            - **(input-3)** A short excerpt using a simple scale, inspired by a familiar children's tune.
-            - **(input-4)** A medium-length melody mixing different note lengths within a major scale.
-            - **(input-5)** An atonal snippet with wide pitch leaps, lacking a clear key centre.
-            - **(input-6)** A longer motif repeated several times, testing how models handle repetition.
-        """)
+        uploaded_file = None
         sample_options = {
-            "Familiar Tonal Snippet (input-3)": "input_midis/input-3.mid",
-            "Medium-Length Original Melody (input-4)": "input_midis/input-4.mid",
-            "Atonal, Wide-Range Melody (input-5)": "input_midis/input-5.mid",
-            "Long Repetitive Motif (input-6)": "input_midis/input-6.mid"
+            "Familiar Tonal Snippet": "input_midis/input-3.mid",
+            "Medium-Length Original Melody": "input_midis/input-4.mid",
+            "Atonal, Wide-Range Melody": "input_midis/input-5.mid",
+            "Long Repetitive Motif": "input_midis/input-6.mid"
         }
         chosen_sample = st.selectbox("Choose a sample MIDI:", list(sample_options.keys()))
 
-        # Optional auto-load buttons for convenience
-        if st.button("Load the Chosen Sample Automatically"):
-            pass  # This button can be used to auto-trigger the sample, if desired
-
-        uploaded_file = None
-
     st.markdown("**Select a Model:**")
     model_list = ["basic", "lookback", "attention", "mono"]
-    chosen_model = st.selectbox("Select a model:", model_list,
-                                help="Pick one of the Magenta Melody RNN models. See the details above!")
+    chosen_model = st.selectbox("Select a model:", model_list)
 
     if st.button("Continue to Preview"):
+        # Load MIDI data based on input method
         if input_method == "Upload MIDI":
             if uploaded_file is None:
-                st.error("Please upload a MIDI file or switch to 'Use Sample'.")
+                st.error("Please upload a MIDI file.")
                 return
             st.session_state.uploaded_midi = uploaded_file.getvalue()
         else:
@@ -465,7 +325,7 @@ def select_model_page():
 
         st.session_state.selected_model = chosen_model
 
-        # Display piano roll and audio preview
+        # Display piano roll and audio preview for the loaded MIDI
         if st.session_state.uploaded_midi:
             with tempfile.NamedTemporaryFile(delete=False, suffix=".mid") as tmp:
                 tmp.write(st.session_state.uploaded_midi)
@@ -484,9 +344,9 @@ def select_model_page():
             else:
                 st.warning("No valid notes found in the selected MIDI.")
 
-        # Flow hint
-        st.info("Ready to see your 'generated' continuation? Click below!")
+        # Show "Run Model & Continue" button after previewing
         st.button("Run Model & Continue", on_click=lambda: (setattr(st.session_state, 'page', 'output'), st.rerun()))
+
 
 # ================== Page 4: Output ==================
 def output_page():
@@ -535,25 +395,20 @@ def output_page():
         mime="audio/midi"
     )
 
-    # Piano roll video generation (integrated from the first script) with progress
+    # Piano roll video placeholder
     if st.button("Generate Piano Roll Video (.mp4)"):
         try:
-            st.info("Generating piano roll video, please wait...")
             video_bytes = generate_piano_roll_video(st.session_state.uploaded_midi)
-            if video_bytes:
-                st.download_button(
-                    label="Download Piano Roll Video",
-                    data=video_bytes,
-                    file_name="generated_continuation.mp4",
-                    mime="video/mp4"
-                )
-            else:
-                st.warning("Could not generate a video. Possibly no valid notes to visualise.")
+            st.download_button(
+                label="Download Piano Roll Video",
+                data=video_bytes,
+                file_name="generated_continuation.mp4",
+                mime="video/mp4"
+            )
         except Exception as e:
             st.error(f"Error generating piano roll video: {e}")
 
     st.markdown("---")
-    st.info("Click below to finish or revisit your choices.")
     if st.button("Finish & Proceed"):
         st.session_state.page = 'closing'
         st.rerun()
