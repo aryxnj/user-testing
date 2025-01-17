@@ -179,44 +179,33 @@ def generate_piano_roll_video(midi_bytes: bytes) -> bytes:
     import tempfile
     import shutil
 
-    # Check for ffmpeg binary
     ffmpeg_path = shutil.which("ffmpeg")
     if ffmpeg_path is None:
-        # If ffmpeg is not found, inform the user
         st.error("FFmpeg not found. Please install FFmpeg or ensure it is in your system PATH.")
         return b""
 
-    # 1) Write the MIDI bytes to a temporary file
     with tempfile.NamedTemporaryFile(delete=False, suffix=".mid") as tmp_mid:
         tmp_mid.write(midi_bytes)
         tmp_mid_path = tmp_mid.name
 
-    # 2) Parse MIDI to get timeline data
     midi_data = parse_midi(tmp_mid_path)
     if midi_data.empty:
         return b""
 
     total_time_in_seconds = midi_data['start_time'].max() + midi_data['duration'].max()
 
-    # 3) Convert MIDI to WAV for final audio track
     with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as tmp_wav:
         tmp_wav_path = tmp_wav.name
     fs.midi_to_audio(tmp_mid_path, tmp_wav_path)
 
-    # 4) Generate frames in a temporary frames directory
     frames_dir = tempfile.mkdtemp()
     frame_count = int(total_time_in_seconds * FPS)
-    progress_bar = st.progress(0)  # Show progress in the Streamlit interface
+    progress_bar = st.progress(0)
     midi_note_names = generate_midi_note_names()
 
-    # Define all piano notes from A0 to C8
     unique_notes = [midi_note_names[i] for i in range(21, 109)]
     note_to_y = {note: idx for idx, note in enumerate(unique_notes)}
-
-    # Filter out-of-range notes
     midi_data['note_name'] = midi_data['note'].map(midi_note_names).dropna()
-
-    # Determine the octaves played
     played_notes = midi_data['note'].unique()
     played_octaves = sorted(set((n // 12) - 1 for n in played_notes if 21 <= n <= 108))
 
@@ -245,7 +234,6 @@ def generate_piano_roll_video(midi_bytes: bytes) -> bytes:
         ax.set_yticklabels(unique_notes)
         ax.grid(True, which='both', linestyle='--', linewidth=0.5)
 
-        # Plot all notes as faded boxes
         for _, note_info in midi_data.iterrows():
             note_number = note_info['note']
             note_name = midi_note_names.get(note_number, None)
@@ -270,7 +258,6 @@ def generate_piano_roll_video(midi_bytes: bytes) -> bytes:
 
     progress_bar.empty()
 
-    # 5) Use FFmpeg to create the video from frames
     temp_video_path = os.path.join(frames_dir, "temp_video.mp4")
     ffmpeg_video_cmd = [
         ffmpeg_path,
@@ -283,7 +270,6 @@ def generate_piano_roll_video(midi_bytes: bytes) -> bytes:
     ]
     subprocess.run(ffmpeg_video_cmd, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 
-    # 6) Merge video with audio
     final_video_path = os.path.join(frames_dir, "final_video.mp4")
     ffmpeg_merge_cmd = [
         ffmpeg_path,
@@ -297,11 +283,9 @@ def generate_piano_roll_video(midi_bytes: bytes) -> bytes:
     ]
     subprocess.run(ffmpeg_merge_cmd, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 
-    # Read final video as bytes
     with open(final_video_path, "rb") as f:
         video_bytes = f.read()
 
-    # Cleanup
     os.remove(temp_video_path)
     os.remove(tmp_wav_path)
     os.remove(tmp_mid_path)
@@ -322,7 +306,6 @@ st.set_page_config(
 if 'page' not in st.session_state:
     st.session_state.page = 'welcome'
 
-# We'll store the raw MIDI bytes and model choice in session state
 if 'uploaded_midi' not in st.session_state:
     st.session_state.uploaded_midi = None
 if 'selected_model' not in st.session_state:
@@ -426,10 +409,8 @@ def select_model_page():
     st.title("Upload or Select a MIDI File, Then Choose a Model")
     st.warning("Remember: For strongly tonal examples, a V–I cadence can provide a satisfying ending!")
 
-    # Toggle between uploading a file or using a sample
     input_method = st.radio("Select input method:", ["Upload MIDI", "Use Sample"])
 
-    # Show library of samples or file uploader
     if input_method == "Upload MIDI":
         uploaded_file = st.file_uploader("Upload a MIDI file (.mid):", type=["mid"])
         sample_options = {}
@@ -456,24 +437,33 @@ def select_model_page():
     chosen_model = st.selectbox("Select a model:", model_list,
                                 help="Pick one of the Magenta Melody RNN models. See the details above!")
 
-    if st.button("Continue to Preview"):
-        if input_method == "Upload MIDI":
-            if uploaded_file is None:
-                st.error("Please upload a MIDI file or switch to 'Use Sample'.")
-                return
-            st.session_state.uploaded_midi = uploaded_file.getvalue()
-        else:
-            sample_path = sample_options[chosen_sample]
-            try:
-                with open(sample_path, 'rb') as f:
-                    st.session_state.uploaded_midi = f.read()
-            except Exception as e:
-                st.error(f"Unable to load sample: {e}")
-                return
+    # Track whether we've shown the preview yet
+    if 'preview_shown' not in st.session_state:
+        st.session_state.preview_shown = False
 
-        st.session_state.selected_model = chosen_model
+    # If we haven't shown the preview yet:
+    if not st.session_state.preview_shown:
+        if st.button("Continue to Preview"):
+            # Load MIDI data
+            if input_method == "Upload MIDI":
+                if uploaded_file is None:
+                    st.error("Please upload a MIDI file or switch to 'Use Sample'.")
+                    return
+                st.session_state.uploaded_midi = uploaded_file.getvalue()
+            else:
+                sample_path = sample_options[chosen_sample]
+                try:
+                    with open(sample_path, 'rb') as f:
+                        st.session_state.uploaded_midi = f.read()
+                except Exception as e:
+                    st.error(f"Unable to load sample: {e}")
+                    return
 
-        # Display piano roll and audio preview
+            st.session_state.selected_model = chosen_model
+            st.session_state.preview_shown = True
+            st.rerun()
+    else:
+        # Preview is already shown
         if st.session_state.uploaded_midi:
             with tempfile.NamedTemporaryFile(delete=False, suffix=".mid") as tmp:
                 tmp.write(st.session_state.uploaded_midi)
@@ -511,7 +501,6 @@ def output_page():
         to produce a unique transformation or extension.
     """)
 
-    # Show the 'generated' continuation's piano roll
     try:
         with tempfile.NamedTemporaryFile(delete=False, suffix=".mid") as tmp:
             tmp.write(st.session_state.uploaded_midi)
@@ -528,7 +517,6 @@ def output_page():
         fig = create_static_piano_roll(df, total_time_in_seconds)
         st.pyplot(fig)
 
-    # Audio preview
     try:
         wav_bytes = convert_midi_to_wav(st.session_state.uploaded_midi)
         st.markdown("### Listen to the Continuation:")
@@ -536,7 +524,6 @@ def output_page():
     except Exception as e:
         st.warning(f"Could not provide an audio preview: {e}")
 
-    # MIDI download
     st.download_button(
         label="Download Generated MIDI",
         data=st.session_state.uploaded_midi,
@@ -544,7 +531,6 @@ def output_page():
         mime="audio/midi"
     )
 
-    # Piano roll video generation
     if st.button("Generate Piano Roll Video (.mp4)"):
         try:
             st.info("Generating piano roll video, please wait...")
@@ -569,7 +555,6 @@ def output_page():
 
 # ================== Page 5: Closing ==================
 def closing_page():
-    # Show a closing banner
     if os.path.exists("closing_banner.png"):
         st.image("closing_banner.png", use_container_width=True)
 
@@ -580,7 +565,6 @@ def closing_page():
         without any additional fireworks.
     """)
 
-    # Show balloons only upon first arrival on this page
     if 'closing_visited' not in st.session_state:
         st.session_state.closing_visited = True
         st.balloons()
