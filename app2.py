@@ -92,14 +92,10 @@ def create_static_piano_roll(data, total_time_in_seconds):
     # Create a mapping for y-axis positions
     note_to_y = {note: idx for idx, note in enumerate(unique_notes)}
     
-    # Map data['note'] to note names, filter out any notes outside the piano range
     data['note_name'] = data['note'].map(midi_note_names).dropna()
-    
-    # Determine the octaves played
     played_notes = data['note'].unique()
     played_octaves = sorted(set((note // 12) - 1 for note in played_notes if 21 <= note <= 108))
-    
-    # Filter unique_notes to include only the octaves played
+
     filtered_notes = []
     for octave in played_octaves:
         for note in ['C', 'C#', 'D', 'D#', 'E', 'F',
@@ -113,7 +109,7 @@ def create_static_piano_roll(data, total_time_in_seconds):
             midi_num = (octave + 1) * 12 + note_index
             if 21 <= midi_num <= 108:
                 filtered_notes.append(f"{note}{octave}")
-    
+
     unique_notes = filtered_notes
     note_to_y = {note: idx for idx, note in enumerate(unique_notes)}
 
@@ -168,8 +164,9 @@ def convert_midi_to_wav(midi_data: bytes) -> bytes:
 
 def generate_piano_roll_video(midi_bytes: bytes) -> bytes:
     """
-    Create a piano roll video with a moving red line and bold 'active' notes.
-    Past and upcoming notes are semi-transparent with black borders.
+    Create a piano roll video including a moving red line and bold 'active' notes,
+    replicating the style of the original script. Past notes are faded, upcoming notes
+    are faded, and current notes are solid. The static piano roll remains unchanged.
     """
     import tempfile
     import shutil
@@ -179,124 +176,147 @@ def generate_piano_roll_video(midi_bytes: bytes) -> bytes:
         st.error("FFmpeg not found. Please install FFmpeg or ensure it is in your system PATH.")
         return b""
 
-    # Step 1: Write the MIDI bytes to a temporary file
+    # Write MIDI bytes to temporary file
     with tempfile.NamedTemporaryFile(delete=False, suffix=".mid") as tmp_mid:
         tmp_mid.write(midi_bytes)
         tmp_mid_path = tmp_mid.name
 
-    # Parse MIDI
     midi_data = parse_midi(tmp_mid_path)
     if midi_data.empty:
         return b""
 
     total_time_in_seconds = midi_data['start_time'].max() + midi_data['duration'].max()
 
-    # Convert MIDI to WAV
+    # Convert MIDI to WAV for final audio track
     with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as tmp_wav:
         tmp_wav_path = tmp_wav.name
     fs.midi_to_audio(tmp_mid_path, tmp_wav_path)
 
+    # Prepare frame generation
     frames_dir = tempfile.mkdtemp()
     frame_count = int(total_time_in_seconds * FPS)
     progress_bar = st.progress(0)
 
+    # Sort notes by start time, track active notes as time advances
+    data_sorted = midi_data.sort_values('start_time').reset_index(drop=True)
+    current_index = 0
+    active_notes = []
+    past_notes = []
+
     midi_note_names = generate_midi_note_names()
+
+    # Define all piano notes from A0 to C8
     unique_notes = [midi_note_names[i] for i in range(21, 109)]
     note_to_y = {note: idx for idx, note in enumerate(unique_notes)}
 
     # Filter out-of-range notes
-    midi_data['note_name'] = midi_data['note'].map(midi_note_names).dropna()
+    data_sorted['note_name'] = data_sorted['note'].map(midi_note_names).dropna()
 
-    # Sort the data for time-based iteration
-    data_sorted = midi_data.sort_values('start_time').reset_index(drop=True)
+    # Determine the octaves played
+    played_notes = data_sorted['note'].unique()
+    played_octaves = sorted(set((n // 12) - 1 for n in played_notes if 21 <= n <= 108))
 
-    current_index = 0
-    active_notes = []
-    past_notes = []
+    filtered_notes = []
+    for octave in played_octaves:
+        for note in ['C', 'C#', 'D', 'D#', 'E', 'F',
+                     'F#', 'G', 'G#', 'A', 'A#', 'B']:
+            try:
+                note_index = ['C', 'C#', 'D', 'D#', 'E',
+                              'F', 'F#', 'G', 'G#', 'A',
+                              'A#', 'B'].index(note)
+            except ValueError:
+                continue
+            midi_num = (octave + 1) * 12 + note_index
+            if 21 <= midi_num <= 108:
+                filtered_notes.append(f"{note}{octave}")
+
+    unique_notes = filtered_notes
+    note_to_y = {note: idx for idx, note in enumerate(unique_notes)}
 
     for frame_idx in range(frame_count):
         current_time = frame_idx / FPS
         current_bar = current_time / SECONDS_PER_BAR
 
-        # Add any notes that should now become active
+        # Add newly reached notes to active list
         while current_index < len(data_sorted) and data_sorted.loc[current_index, 'start_time'] <= current_time:
-            note_num = data_sorted.loc[current_index, 'note']
-            vel = data_sorted.loc[current_index, 'velocity']
-            dur = data_sorted.loc[current_index, 'duration']
-            end_t = data_sorted.loc[current_index, 'start_time'] + dur
+            note = data_sorted.loc[current_index, 'note']
+            velocity = data_sorted.loc[current_index, 'velocity']
+            duration = data_sorted.loc[current_index, 'duration']
+            end_time = data_sorted.loc[current_index, 'start_time'] + duration
             active_notes.append({
-                'note': note_num,
-                'velocity': vel,
+                'note': note,
+                'velocity': velocity,
                 'start_time': data_sorted.loc[current_index, 'start_time'],
-                'duration': dur,
-                'end_time': end_t
+                'duration': duration,
+                'end_time': end_time
             })
             current_index += 1
 
-        # Move ended notes into past_notes
+        # Move notes that have ended into past_notes
         for note_info in active_notes[:]:
             if note_info['end_time'] <= current_time:
                 past_notes.append(note_info)
                 active_notes.remove(note_info)
 
-        # Identify upcoming notes
+        # Identify upcoming notes (those that haven’t started yet)
         upcoming_notes = data_sorted[data_sorted['start_time'] > current_time]
 
-        # Plotting
         fig, ax = plt.subplots(figsize=(16, 8))
         ax.set_ylim(-1, len(unique_notes))
         ax.set_xlim(0, total_time_in_seconds / SECONDS_PER_BAR)
         ax.set_xlabel("Bars")
         ax.set_ylabel("Notes")
-        ax.set_title("Generated Piano Roll with Red Timeline")
+        ax.set_title("Generated Piano Roll with Red Time Line")
         ax.set_yticks(range(len(unique_notes)))
         ax.set_yticklabels(unique_notes)
         ax.grid(True, which='both', linestyle='--', linewidth=0.5)
 
-        # Plot past notes (faded alpha=0.3 with black borders)
+        # Past notes = faded
         for note_info in past_notes:
             note_number = note_info['note']
             note_name = midi_note_names.get(note_number, None)
-            if note_name not in unique_notes:
+            if note_name is None or note_name not in unique_notes:
                 continue
+            y = note_to_y[note_name]
             start_bar = note_info['start_time'] / SECONDS_PER_BAR
-            dur_bars = note_info['duration'] / SECONDS_PER_BAR
-            y_val = note_to_y[note_name]
-            ax.broken_barh([(start_bar, dur_bars)],
-                           (y_val - 0.4, 0.8),
+            duration_bars = note_info['duration'] / SECONDS_PER_BAR
+            ax.broken_barh([(start_bar, duration_bars)],
+                           (y - 0.4, 0.8),
                            facecolors=(0, 0, 1, 0.3),
                            edgecolors='black',
                            linewidth=0.5)
 
-        # Plot active notes (solid blue, representing 'bold')
+        # Active notes = bold, fully opaque
         for note_info in active_notes:
             note_number = note_info['note']
             note_name = midi_note_names.get(note_number, None)
-            if note_name not in unique_notes:
+            if note_name is None or note_name not in unique_notes:
                 continue
+            y = note_to_y[note_name]
             start_bar = note_info['start_time'] / SECONDS_PER_BAR
-            dur_bars = note_info['duration'] / SECONDS_PER_BAR
-            y_val = note_to_y[note_name]
-            ax.broken_barh([(start_bar, dur_bars)],
-                           (y_val - 0.4, 0.8),
-                           facecolors='blue')
+            duration_bars = note_info['duration'] / SECONDS_PER_BAR
+            ax.broken_barh([(start_bar, duration_bars)],
+                           (y - 0.4, 0.8),
+                           facecolors='blue',
+                           edgecolors='black',
+                           linewidth=1.5)  # Thicker border to emphasise active note
 
-        # Plot upcoming notes (semi-transparent with black borders)
-        for _, note in upcoming_notes.iterrows():
-            note_number = note['note']
+        # Upcoming notes = faded
+        for _, note_info in upcoming_notes.iterrows():
+            note_number = note_info['note']
             note_name = midi_note_names.get(note_number, None)
-            if note_name not in unique_notes:
+            if note_name is None or note_name not in unique_notes:
                 continue
-            start_bar = note['start_time'] / SECONDS_PER_BAR
-            dur_bars = note['duration'] / SECONDS_PER_BAR
-            y_val = note_to_y[note_name]
-            ax.broken_barh([(start_bar, dur_bars)],
-                           (y_val - 0.4, 0.8),
+            y = note_to_y[note_name]
+            start_bar = note_info['start_time'] / SECONDS_PER_BAR
+            duration_bars = note_info['duration'] / SECONDS_PER_BAR
+            ax.broken_barh([(start_bar, duration_bars)],
+                           (y - 0.4, 0.8),
                            facecolors=(0, 0, 1, 0.3),
                            edgecolors='black',
                            linewidth=0.5)
 
-        # Draw the moving red line
+        # Add moving red line
         ax.axvline(x=current_bar, color='red', linewidth=2, linestyle='--')
 
         frame_filename = os.path.join(frames_dir, f"frame_{frame_idx:05d}.png")
@@ -309,7 +329,7 @@ def generate_piano_roll_video(midi_bytes: bytes) -> bytes:
 
     progress_bar.empty()
 
-    # Step 2: Combine frames into a video
+    # FFmpeg: create video from frames
     temp_video_path = os.path.join(frames_dir, "temp_video.mp4")
     ffmpeg_video_cmd = [
         ffmpeg_path,
@@ -322,7 +342,7 @@ def generate_piano_roll_video(midi_bytes: bytes) -> bytes:
     ]
     subprocess.run(ffmpeg_video_cmd, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 
-    # Step 3: Merge the video with audio
+    # Merge video with audio
     final_video_path = os.path.join(frames_dir, "final_video.mp4")
     ffmpeg_merge_cmd = [
         ffmpeg_path,
@@ -336,11 +356,10 @@ def generate_piano_roll_video(midi_bytes: bytes) -> bytes:
     ]
     subprocess.run(ffmpeg_merge_cmd, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 
-    # Read final video
+    # Read final video bytes
     with open(final_video_path, "rb") as f:
         video_bytes = f.read()
 
-    # Cleanup
     os.remove(temp_video_path)
     os.remove(tmp_wav_path)
     os.remove(tmp_mid_path)
@@ -492,11 +511,14 @@ def select_model_page():
     chosen_model = st.selectbox("Select a model:", model_list,
                                 help="Pick one of the Magenta Melody RNN models. See the details above!")
 
+    # Track whether we've shown the preview yet
     if 'preview_shown' not in st.session_state:
         st.session_state.preview_shown = False
 
+    # If we haven't shown the preview yet:
     if not st.session_state.preview_shown:
         if st.button("Continue to Preview"):
+            # Load MIDI data
             if input_method == "Upload MIDI":
                 if uploaded_file is None:
                     st.error("Please upload a MIDI file or switch to 'Use Sample'.")
@@ -515,6 +537,7 @@ def select_model_page():
             st.session_state.preview_shown = True
             st.rerun()
     else:
+        # Preview is already shown
         if st.session_state.uploaded_midi:
             with tempfile.NamedTemporaryFile(delete=False, suffix=".mid") as tmp:
                 tmp.write(st.session_state.uploaded_midi)
