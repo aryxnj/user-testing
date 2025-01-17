@@ -1,19 +1,15 @@
 import streamlit as st
 import os
-import io
 import tempfile
-import shutil
-import subprocess
 import pandas as pd
 import matplotlib.pyplot as plt
 from pathlib import Path
 from datetime import datetime
 from mido import MidiFile
 from midi2audio import FluidSynth
-from tqdm import tqdm
 
 # ============================================
-# ====== Copied Logic from First Script ======
+# ====== Logic from the First Script ========
 # ============================================
 
 SOUND_FONT_PATH = os.path.join(os.getcwd(), 'sounds', 'FluidR3_GM.sf2')
@@ -32,7 +28,7 @@ def parse_midi(file_path: str) -> pd.DataFrame:
     """
     midi = MidiFile(file_path)
     notes = []
-    tempo = 500000  # default tempo
+    tempo = 500000  # default tempo (120 BPM)
     ticks_per_beat = midi.ticks_per_beat
     track_times = [0] * len(midi.tracks)
 
@@ -55,10 +51,7 @@ def parse_midi(file_path: str) -> pd.DataFrame:
                         note_dict['duration'] = note_end - note_dict['start_time']
                         break
 
-    # Remove any note without a duration
     notes = [n for n in notes if 'duration' in n]
-
-    # Align start times so earliest note is at 0
     if notes:
         min_start_time = min(n['start_time'] for n in notes)
         for n in notes:
@@ -73,7 +66,7 @@ def generate_midi_note_names() -> dict:
     note_names = ['C', 'C#', 'D', 'D#', 'E', 'F',
                   'F#', 'G', 'G#', 'A', 'A#', 'B']
     midi_note_names = {}
-    for i in range(21, 109):  # Piano range A0 (21) to C8 (108)
+    for i in range(21, 109):
         octave = (i // 12) - 1
         note = note_names[i % 12]
         midi_note_names[i] = f"{note}{octave}"
@@ -85,7 +78,6 @@ def create_piano_roll(data: pd.DataFrame) -> plt.Figure:
     """
     midi_note_names = generate_midi_note_names()
 
-    # Map 'note' -> 'note_name'
     data['note_name'] = data['note'].map(midi_note_names).dropna()
     valid_data = data[data['note_name'].notnull()].copy()
     if valid_data.empty:
@@ -95,7 +87,7 @@ def create_piano_roll(data: pd.DataFrame) -> plt.Figure:
 
     unique_notes_used = sorted(
         valid_data['note_name'].unique(),
-        key=lambda x: (int(x[-1]), x[:-1])  # sort by octave + pitch
+        key=lambda x: (int(x[-1]), x[:-1])
     )
     note_to_y = {note: idx for idx, note in enumerate(unique_notes_used)}
 
@@ -126,8 +118,6 @@ def convert_midi_to_wav(midi_data: bytes) -> bytes:
     """
     Convert MIDI bytes to WAV bytes using FluidSynth.
     """
-    import tempfile
-
     with tempfile.NamedTemporaryFile(delete=False, suffix=".mid") as tmp_mid:
         tmp_mid.write(midi_data)
         tmp_mid_path = tmp_mid.name
@@ -150,7 +140,6 @@ def generate_piano_roll_video(midi_bytes: bytes) -> bytes:
     """
     return b"VIDEO_PLACEHOLDER"
 
-
 # =======================================
 # ========== Streamlit App =============
 # =======================================
@@ -169,9 +158,11 @@ if 'uploaded_midi' not in st.session_state:
     st.session_state.uploaded_midi = None
 if 'selected_model' not in st.session_state:
     st.session_state.selected_model = None
+if 'chosen_sample' not in st.session_state:
+    st.session_state.chosen_sample = "None"
 
 def reset_session():
-    for key in ['page', 'uploaded_midi', 'selected_model', 'preview_shown', 'chosen_sample']:
+    for key in ['page', 'uploaded_midi', 'selected_model', 'preview_shown', 'chosen_sample', 'closing_visited']:
         if key in st.session_state:
             del st.session_state[key]
     st.rerun()
@@ -192,7 +183,8 @@ def render_sidebar():
 
 # ================== Page 1: Welcome ==================
 def welcome_page():
-    st.image("banner.png", use_container_width=True)
+    if os.path.exists("banner.png"):
+        st.image("banner.png", use_container_width=True)
     st.title("🎵 Welcome to the AI Music Assistant 🎵")
     st.markdown("""
         This interactive app allows you to upload (or select) a MIDI file and explore 
@@ -258,11 +250,9 @@ def instructions_page():
 def select_model_page():
     st.title("Upload or Select a MIDI File, Then Choose a Model")
 
-    # We track if the user is showing the preview or not
+    # If we haven't shown preview yet, define or keep preview_shown
     if 'preview_shown' not in st.session_state:
         st.session_state.preview_shown = False
-    if 'chosen_sample' not in st.session_state:
-        st.session_state.chosen_sample = "None"
 
     # Define sample options
     sample_options = {
@@ -273,45 +263,37 @@ def select_model_page():
     }
     sample_list = ["None"] + list(sample_options.keys())
 
-    # If user already uploaded a file, disable the sample
-    # If user chose a sample, disable the file uploader
-    disable_sample = False
-    disable_uploader = False
+    # Determine if we disable the sample or uploader based on the user's current choice
+    disable_sample = bool(st.session_state.uploaded_midi)
+    disable_uploader = (st.session_state.chosen_sample != "None")
 
-    if st.session_state.uploaded_midi is not None:
-        # A file is uploaded, so we disable sample selection
-        disable_sample = True
-    if st.session_state.chosen_sample != "None":
-        # A sample is chosen, so we disable file upload
-        disable_uploader = True
-
-    # Show the file uploader, disabled if a sample is chosen
+    # File uploader (disabled if a sample is chosen)
     uploaded_file = st.file_uploader(
         "Upload a MIDI file (.mid):",
         type=["mid"],
         disabled=disable_uploader
     )
-
-    # Sample selection, disabled if a file is already uploaded
-    chosen_sample = st.selectbox(
-        "Or select a sample MIDI:",
-        sample_list,
-        index=sample_list.index(st.session_state.chosen_sample),
-        disabled=disable_sample
-    )
-
-    # If the user changed the sample selection
-    if chosen_sample != st.session_state.chosen_sample:
-        st.session_state.chosen_sample = chosen_sample
-        if chosen_sample != "None":
-            # Clear any uploaded file
-            st.session_state.uploaded_midi = None
-
-    # If a new file is uploaded, reset the sample to None
+    # If the user just uploaded a file
     if uploaded_file is not None:
         st.session_state.uploaded_midi = uploaded_file.getvalue()
+        # If we had a sample chosen, revert it
         if st.session_state.chosen_sample != "None":
             st.session_state.chosen_sample = "None"
+        st.experimental_rerun()
+
+    # Sample selection (disabled if a file is uploaded)
+    sample_choice = st.selectbox(
+        "Or select a sample MIDI:",
+        sample_list,
+        index=sample_list.index(st.session_state.chosen_sample) if st.session_state.chosen_sample in sample_list else 0,
+        disabled=disable_sample
+    )
+    if sample_choice != st.session_state.chosen_sample:
+        st.session_state.chosen_sample = sample_choice
+        if sample_choice != "None":
+            # Clear any user-uploaded file
+            st.session_state.uploaded_midi = None
+        st.experimental_rerun()
 
     # Model selection
     model_list = ["basic", "lookback", "attention", "mono"]
@@ -319,22 +301,21 @@ def select_model_page():
     st.session_state.selected_model = chosen_model
 
     st.markdown("---")
-    # Show a 'Continue to preview' button if we haven't shown the preview yet
+
+    # If preview not shown, show "Continue to preview"
     if not st.session_state.preview_shown:
         if st.button("Continue to preview"):
-            # Validate we have either a sample or an uploaded file
             if (st.session_state.uploaded_midi is None) and (st.session_state.chosen_sample == "None"):
                 st.error("Please either upload a MIDI file or select a sample first.")
             else:
                 st.session_state.preview_shown = True
                 st.rerun()
     else:
-        # Now we show the preview (piano roll + audio) and a button "Run Model & Continue"
+        # Show the preview
         st.markdown("### Preview of Selected MIDI")
 
-        # If we truly have a MIDI (sample or uploaded)
+        # If there's an uploaded MIDI
         if st.session_state.uploaded_midi:
-            # Display piano roll
             try:
                 with tempfile.NamedTemporaryFile(delete=False, suffix=".mid") as tmp:
                     tmp.write(st.session_state.uploaded_midi)
@@ -347,7 +328,6 @@ def select_model_page():
                     fig = create_piano_roll(df)
                     st.pyplot(fig)
 
-                # Audio
                 try:
                     wav_bytes = convert_midi_to_wav(st.session_state.uploaded_midi)
                     st.markdown("#### Listen to Your MIDI:")
@@ -358,12 +338,8 @@ def select_model_page():
             except Exception as e:
                 st.error(f"Error parsing MIDI: {e}")
 
-        # If it's a sample (and no file in st.session_state.uploaded_midi),
-        # that means user is picking a sample which was just loaded. 
-        # But we handle it the same as above once st.session_state.uploaded_midi is set.
-
         st.markdown("---")
-        # Button to move on
+        # Button to run model
         if st.button("Run Model & Continue"):
             st.session_state.page = 'output'
             st.rerun()
@@ -382,7 +358,7 @@ def output_page():
         to produce a unique transformation or extension.
     """)
 
-    # Show the 'generated' continuation's piano roll
+    # Show the final piano roll
     try:
         with tempfile.NamedTemporaryFile(delete=False, suffix=".mid") as tmp:
             tmp.write(st.session_state.uploaded_midi)
@@ -406,7 +382,7 @@ def output_page():
     except Exception as e:
         st.warning(f"Could not provide an audio preview: {e}")
 
-    # MIDI download
+    # Download the 'generated' MIDI
     st.download_button(
         label="Download Generated MIDI",
         data=st.session_state.uploaded_midi,
@@ -414,7 +390,7 @@ def output_page():
         mime="audio/midi"
     )
 
-    # Piano roll video placeholder
+    # Piano roll video (placeholder)
     if st.button("Generate Piano Roll Video (.mp4)"):
         try:
             video_bytes = generate_piano_roll_video(st.session_state.uploaded_midi)
@@ -434,7 +410,7 @@ def output_page():
 
 # ================== Page 5: Closing ==================
 def closing_page():
-    # Show a closing banner
+    # If you have a closing banner
     if os.path.exists("closing_banner.png"):
         st.image("closing_banner.png", use_container_width=True)
 
@@ -442,10 +418,9 @@ def closing_page():
     st.markdown("""
         We hope you enjoyed exploring our simple AI-based MIDI tool. 
         If you wish, you can select a different model below and run the same file again 
-        without any additional fireworks.
+        without additional balloons.
     """)
 
-    # Show balloons only upon first arrival on this page
     if 'closing_visited' not in st.session_state:
         st.session_state.closing_visited = True
         st.balloons()
