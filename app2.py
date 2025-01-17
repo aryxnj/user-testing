@@ -258,123 +258,68 @@ def instructions_page():
 def select_model_page():
     st.title("Upload or Select a MIDI File, Then Choose a Model")
 
-    # We track if the user is showing the preview or not
-    if 'preview_shown' not in st.session_state:
-        st.session_state.preview_shown = False
-    if 'chosen_sample' not in st.session_state:
-        st.session_state.chosen_sample = "None"
+    # Toggle between uploading a file or using a sample
+    input_method = st.radio("Select input method:", ["Upload MIDI", "Use Sample"])
 
-    # Define sample options
-    sample_options = {
-        "Familiar Tonal Snippet": "input_midis/input-3.mid",
-        "Medium-Length Original Melody": "input_midis/input-4.mid",
-        "Atonal, Wide-Range Melody": "input_midis/input-5.mid",
-        "Long Repetitive Motif": "input_midis/input-6.mid"
-    }
-    sample_list = ["None"] + list(sample_options.keys())
+    # Depending on the choice, show the corresponding input and grey out the other
+    if input_method == "Upload MIDI":
+        uploaded_file = st.file_uploader("Upload a MIDI file (.mid):", type=["mid"])
+        # Hide sample selection when uploading
+        sample_options = {}
+        chosen_sample = None
+    else:
+        uploaded_file = None
+        sample_options = {
+            "Familiar Tonal Snippet": "input_midis/input-3.mid",
+            "Medium-Length Original Melody": "input_midis/input-4.mid",
+            "Atonal, Wide-Range Melody": "input_midis/input-5.mid",
+            "Long Repetitive Motif": "input_midis/input-6.mid"
+        }
+        chosen_sample = st.selectbox("Choose a sample MIDI:", list(sample_options.keys()))
 
-    # If user already uploaded a file, disable the sample
-    # Initialize chosen_sample state if not already set
-    if 'chosen_sample' not in st.session_state:
-        st.session_state.chosen_sample = "None"
-
-    # Determine disabled states immediately based on session state
-    disable_sample = st.session_state.uploaded_midi is not None
-    disable_uploader = st.session_state.chosen_sample != "None"
-
-    uploaded_file = st.file_uploader(
-        "Upload a MIDI file (.mid):",
-        type=["mid"],
-        disabled=disable_uploader
-    )
-
-    sample_list = ["None", "Familiar Tonal Snippet", "Medium-Length Original Melody", "Atonal, Wide-Range Melody", "Long Repetitive Motif"]
-    chosen_sample = st.selectbox(
-        "Or select a sample MIDI:",
-        sample_list,
-        index=sample_list.index(st.session_state.chosen_sample),
-        disabled=disable_sample
-    )
-
-    # Update session state based on user interaction with sample selection or file upload
-    if chosen_sample != st.session_state.chosen_sample:
-        st.session_state.chosen_sample = chosen_sample
-        if chosen_sample != "None":
-            st.session_state.uploaded_midi = None
-
-    if uploaded_file is not None:
-        st.session_state.uploaded_midi = uploaded_file.getvalue()
-        if st.session_state.chosen_sample != "None":
-            st.session_state.chosen_sample = "None"
-
-
-    # If the user changed the sample selection
-    if chosen_sample != st.session_state.chosen_sample:
-        st.session_state.chosen_sample = chosen_sample
-        if chosen_sample != "None":
-            # Clear any uploaded file
-            st.session_state.uploaded_midi = None
-
-    # If a new file is uploaded, reset the sample to None
-    if uploaded_file is not None:
-        st.session_state.uploaded_midi = uploaded_file.getvalue()
-        if st.session_state.chosen_sample != "None":
-            st.session_state.chosen_sample = "None"
-
-    # Model selection
+    st.markdown("**Select a Model:**")
     model_list = ["basic", "lookback", "attention", "mono"]
     chosen_model = st.selectbox("Select a model:", model_list)
-    st.session_state.selected_model = chosen_model
 
-    st.markdown("---")
-    # Show a 'Continue to preview' button if we haven't shown the preview yet
-    if not st.session_state.preview_shown:
-        if st.button("Continue to preview"):
-            # Validate we have either a sample or an uploaded file
-            if (st.session_state.uploaded_midi is None) and (st.session_state.chosen_sample == "None"):
-                st.error("Please either upload a MIDI file or select a sample first.")
-            else:
-                st.session_state.preview_shown = True
-                st.rerun()
-    else:
-        # Now we show the preview (piano roll + audio) and a button "Run Model & Continue"
-        st.markdown("### Preview of Selected MIDI")
-
-        # If we truly have a MIDI (sample or uploaded)
-        if st.session_state.uploaded_midi:
-            # Display piano roll
+    if st.button("Continue to Preview"):
+        # Load MIDI data based on input method
+        if input_method == "Upload MIDI":
+            if uploaded_file is None:
+                st.error("Please upload a MIDI file.")
+                return
+            st.session_state.uploaded_midi = uploaded_file.getvalue()
+        else:
+            sample_path = sample_options[chosen_sample]
             try:
-                with tempfile.NamedTemporaryFile(delete=False, suffix=".mid") as tmp:
-                    tmp.write(st.session_state.uploaded_midi)
-                    tmp.flush()
-                    df = parse_midi(tmp.name)
+                with open(sample_path, 'rb') as f:
+                    st.session_state.uploaded_midi = f.read()
+            except Exception as e:
+                st.error(f"Unable to load sample: {e}")
+                return
 
-                if df.empty:
-                    st.warning("No notes found in this MIDI file.")
-                else:
-                    fig = create_piano_roll(df)
-                    st.pyplot(fig)
+        st.session_state.selected_model = chosen_model
 
-                # Audio
+        # Display piano roll and audio preview for the loaded MIDI
+        if st.session_state.uploaded_midi:
+            with tempfile.NamedTemporaryFile(delete=False, suffix=".mid") as tmp:
+                tmp.write(st.session_state.uploaded_midi)
+                tmp.flush()
+                df = parse_midi(tmp.name)
+            if not df.empty:
+                fig = create_piano_roll(df)
+                st.pyplot(fig)
                 try:
                     wav_bytes = convert_midi_to_wav(st.session_state.uploaded_midi)
-                    st.markdown("#### Listen to Your MIDI:")
+                    st.markdown("### Listen to Your Selection:")
                     st.audio(wav_bytes, format="audio/wav")
                 except Exception as e:
                     st.warning(f"Could not create audio preview: {e}")
+            else:
+                st.warning("No valid notes found in the selected MIDI.")
 
-            except Exception as e:
-                st.error(f"Error parsing MIDI: {e}")
+        # Show "Run Model & Continue" button after previewing
+        st.button("Run Model & Continue", on_click=lambda: (setattr(st.session_state, 'page', 'output'), st.rerun()))
 
-        # If it's a sample (and no file in st.session_state.uploaded_midi),
-        # that means user is picking a sample which was just loaded. 
-        # But we handle it the same as above once st.session_state.uploaded_midi is set.
-
-        st.markdown("---")
-        # Button to move on
-        if st.button("Run Model & Continue"):
-            st.session_state.page = 'output'
-            st.rerun()
 
 # ================== Page 4: Output ==================
 def output_page():
