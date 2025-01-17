@@ -105,8 +105,9 @@ def create_static_piano_roll(data, total_time_in_seconds):
         for note in ['C', 'C#', 'D', 'D#', 'E', 'F',
                      'F#', 'G', 'G#', 'A', 'A#', 'B']:
             try:
-                note_index = ['C', 'C#', 'D', 'D#', 'E', 'F',
-                              'F#', 'G', 'G#', 'A', 'A#', 'B'].index(note)
+                note_index = ['C', 'C#', 'D', 'D#', 'E',
+                              'F', 'F#', 'G', 'G#', 'A',
+                              'A#', 'B'].index(note)
             except ValueError:
                 continue
             midi_num = (octave + 1) * 12 + note_index
@@ -176,6 +177,14 @@ def generate_piano_roll_video(midi_bytes: bytes) -> bytes:
     Returns the final .mp4 video as bytes.
     """
     import tempfile
+    import shutil
+
+    # Check for ffmpeg binary
+    ffmpeg_path = shutil.which("ffmpeg")
+    if ffmpeg_path is None:
+        # If ffmpeg is not found, inform the user
+        st.error("FFmpeg not found. Please install FFmpeg or ensure it is in your system PATH.")
+        return b""
 
     # 1) Write the MIDI bytes to a temporary file
     with tempfile.NamedTemporaryFile(delete=False, suffix=".mid") as tmp_mid:
@@ -197,14 +206,7 @@ def generate_piano_roll_video(midi_bytes: bytes) -> bytes:
     # 4) Generate frames in a temporary frames directory
     frames_dir = tempfile.mkdtemp()
     frame_count = int(total_time_in_seconds * FPS)
-
-    # Check for ffmpeg availability upfront
-    try:
-        subprocess.run(["ffmpeg", "-version"], check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-    except FileNotFoundError:
-        raise FileNotFoundError("ffmpeg not found on the system. Please install ffmpeg.")
-
-    progress_bar = st.progress(0)
+    progress_bar = st.progress(0)  # Show progress in the Streamlit interface
     midi_note_names = generate_midi_note_names()
 
     # Define all piano notes from A0 to C8
@@ -263,7 +265,6 @@ def generate_piano_roll_video(midi_bytes: bytes) -> bytes:
         plt.savefig(frame_filename)
         plt.close(fig)
 
-        # Update progress
         progress_percentage = int((frame_idx + 1) / frame_count * 100)
         progress_bar.progress(progress_percentage)
 
@@ -272,7 +273,7 @@ def generate_piano_roll_video(midi_bytes: bytes) -> bytes:
     # 5) Use FFmpeg to create the video from frames
     temp_video_path = os.path.join(frames_dir, "temp_video.mp4")
     ffmpeg_video_cmd = [
-        "ffmpeg",
+        ffmpeg_path,
         "-y",
         "-framerate", str(FPS),
         "-i", os.path.join(frames_dir, "frame_%05d.png"),
@@ -285,7 +286,7 @@ def generate_piano_roll_video(midi_bytes: bytes) -> bytes:
     # 6) Merge video with audio
     final_video_path = os.path.join(frames_dir, "final_video.mp4")
     ffmpeg_merge_cmd = [
-        "ffmpeg",
+        ffmpeg_path,
         "-y",
         "-i", temp_video_path,
         "-i", tmp_wav_path,
@@ -307,7 +308,6 @@ def generate_piano_roll_video(midi_bytes: bytes) -> bytes:
     shutil.rmtree(frames_dir, ignore_errors=True)
 
     return video_bytes
-
 
 # =======================================
 # ========== Streamlit App =============
@@ -360,18 +360,18 @@ def welcome_page():
     """)
 
     with st.expander("View Example Videos of Input/Output"):
-        tabs = st.tabs(["Input (input-3)", "Mono Model Output", "Lookback Model Output"])
-
-        with tabs[0]:
-            st.subheader("Familiar Tonal Snippet (input-3)")
+        tab1, tab2, tab3 = st.tabs(["Familiar Tonal Snippet", "Mono Model Output", "Lookback Model Output"])
+        
+        with tab1:
+            st.subheader("Original Input (input-3): A Familiar Tonal Snippet")
             st.video("output_videos/input-3.mp4")
 
-        with tabs[1]:
-            st.subheader("Mono Model Continuation (output-3-mono)")
+        with tab2:
+            st.subheader("Mono Model Output (output-3-mono): A Monophonic Continuation")
             st.video("output_videos/output-3-mono.mp4")
 
-        with tabs[2]:
-            st.subheader("Lookback Model Continuation (output-3-lookback)")
+        with tab3:
+            st.subheader("Lookback Model Output (output-3-lookback): A Continuation Considering Prior Measures")
             st.video("output_videos/output-3-lookback.mp4")
 
     st.markdown("---")
@@ -429,6 +429,7 @@ def select_model_page():
     # Toggle between uploading a file or using a sample
     input_method = st.radio("Select input method:", ["Upload MIDI", "Use Sample"])
 
+    # Show library of samples or file uploader
     if input_method == "Upload MIDI":
         uploaded_file = st.file_uploader("Upload a MIDI file (.mid):", type=["mid"])
         sample_options = {}
@@ -543,7 +544,7 @@ def output_page():
         mime="audio/midi"
     )
 
-    # Piano roll video generation with ffmpeg check
+    # Piano roll video generation
     if st.button("Generate Piano Roll Video (.mp4)"):
         try:
             st.info("Generating piano roll video, please wait...")
@@ -557,8 +558,6 @@ def output_page():
                 )
             else:
                 st.warning("Could not generate a video. Possibly no valid notes to visualise.")
-        except FileNotFoundError:
-            st.error("FFmpeg is not installed on the system. Please install ffmpeg to generate videos.")
         except Exception as e:
             st.error(f"Error generating piano roll video: {e}")
 
