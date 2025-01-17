@@ -197,7 +197,14 @@ def generate_piano_roll_video(midi_bytes: bytes) -> bytes:
     # 4) Generate frames in a temporary frames directory
     frames_dir = tempfile.mkdtemp()
     frame_count = int(total_time_in_seconds * FPS)
-    progress_bar = st.progress(0)  # Show progress in the Streamlit interface
+
+    # Check for ffmpeg availability upfront
+    try:
+        subprocess.run(["ffmpeg", "-version"], check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    except FileNotFoundError:
+        raise FileNotFoundError("ffmpeg not found on the system. Please install ffmpeg.")
+
+    progress_bar = st.progress(0)
     midi_note_names = generate_midi_note_names()
 
     # Define all piano notes from A0 to C8
@@ -236,7 +243,7 @@ def generate_piano_roll_video(midi_bytes: bytes) -> bytes:
         ax.set_yticklabels(unique_notes)
         ax.grid(True, which='both', linestyle='--', linewidth=0.5)
 
-        # Plot all notes as faded boxes where they overlap current_time
+        # Plot all notes as faded boxes
         for _, note_info in midi_data.iterrows():
             note_number = note_info['note']
             note_name = midi_note_names.get(note_number, None)
@@ -352,14 +359,20 @@ def welcome_page():
         We hope you enjoy this small taste of AI-assisted composition!
     """)
 
-    st.subheader("Original Input (input-3): A Familiar Tonal Snippet")
-    st.video("output_videos/input-3.mp4")
+    with st.expander("View Example Videos of Input/Output"):
+        tabs = st.tabs(["Input (input-3)", "Mono Model Output", "Lookback Model Output"])
 
-    st.subheader("Mono Model Output (output-3-mono): A Monophonic Continuation")
-    st.video("output_videos/output-3-mono.mp4")
+        with tabs[0]:
+            st.subheader("Familiar Tonal Snippet (input-3)")
+            st.video("output_videos/input-3.mp4")
 
-    st.subheader("Lookback Model Output (output-3-lookback): A Continuation Considering Prior Measures")
-    st.video("output_videos/output-3-lookback.mp4")
+        with tabs[1]:
+            st.subheader("Mono Model Continuation (output-3-mono)")
+            st.video("output_videos/output-3-mono.mp4")
+
+        with tabs[2]:
+            st.subheader("Lookback Model Continuation (output-3-lookback)")
+            st.video("output_videos/output-3-lookback.mp4")
 
     st.markdown("---")
     st.info("When you're done viewing these examples, click the button below to continue.")
@@ -416,7 +429,6 @@ def select_model_page():
     # Toggle between uploading a file or using a sample
     input_method = st.radio("Select input method:", ["Upload MIDI", "Use Sample"])
 
-    # Show library of samples or file uploader
     if input_method == "Upload MIDI":
         uploaded_file = st.file_uploader("Upload a MIDI file (.mid):", type=["mid"])
         sample_options = {}
@@ -436,11 +448,6 @@ def select_model_page():
             "Long Repetitive Motif (input-6)": "input_midis/input-6.mid"
         }
         chosen_sample = st.selectbox("Choose a sample MIDI:", list(sample_options.keys()))
-
-        # Optional auto-load buttons for convenience
-        if st.button("Load the Chosen Sample Automatically"):
-            pass  # This button can be used to auto-trigger the sample, if desired
-
         uploaded_file = None
 
     st.markdown("**Select a Model:**")
@@ -484,9 +491,10 @@ def select_model_page():
             else:
                 st.warning("No valid notes found in the selected MIDI.")
 
-        # Flow hint
         st.info("Ready to see your 'generated' continuation? Click below!")
-        st.button("Run Model & Continue", on_click=lambda: (setattr(st.session_state, 'page', 'output'), st.rerun()))
+        if st.button("Run Model & Continue"):
+            st.session_state.page = 'output'
+            st.rerun()
 
 # ================== Page 4: Output ==================
 def output_page():
@@ -535,7 +543,7 @@ def output_page():
         mime="audio/midi"
     )
 
-    # Piano roll video generation (integrated from the first script) with progress
+    # Piano roll video generation with ffmpeg check
     if st.button("Generate Piano Roll Video (.mp4)"):
         try:
             st.info("Generating piano roll video, please wait...")
@@ -549,6 +557,8 @@ def output_page():
                 )
             else:
                 st.warning("Could not generate a video. Possibly no valid notes to visualise.")
+        except FileNotFoundError:
+            st.error("FFmpeg is not installed on the system. Please install ffmpeg to generate videos.")
         except Exception as e:
             st.error(f"Error generating piano roll video: {e}")
 
