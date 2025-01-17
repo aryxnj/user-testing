@@ -312,7 +312,7 @@ def select_model_page():
                         st.session_state.uploaded_midi = uploaded_file.getvalue()
                 st.session_state.selected_model = chosen_model
                 st.session_state.continue_pressed = True
-                st.experimental_rerun()  # Refresh to show preview
+                st.rerun()  # Refresh to show preview
     else:
         # Show the piano roll and audio player
         st.markdown(f"**Model Selected**: `{st.session_state.selected_model}`")
