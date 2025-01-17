@@ -279,7 +279,7 @@ def select_model_page():
         # If we had a sample chosen, revert it
         if st.session_state.chosen_sample != "None":
             st.session_state.chosen_sample = "None"
-        st.experimental_rerun()
+        st.rerun()
 
     # Sample selection (disabled if a file is uploaded)
     sample_choice = st.selectbox(
@@ -293,7 +293,7 @@ def select_model_page():
         if sample_choice != "None":
             # Clear any user-uploaded file
             st.session_state.uploaded_midi = None
-        st.experimental_rerun()
+        st.rerun()
 
     # Model selection
     model_list = ["basic", "lookback", "attention", "mono"]
