@@ -408,7 +408,7 @@ def render_sidebar():
 # Page 1: Welcome
 def welcome_page():
     st.image("banner.png", use_container_width=True)
-    st.title("Welcome to the AI Music Assistant 🎵")
+    st.title("🎵Welcome to the AI Music Assistant🎵")
     st.markdown("""
         This interactive app allows you to upload (or select) a MIDI file and explore 
         how a simple AI model can generate a melodic continuation. Experiment with 
