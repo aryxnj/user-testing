@@ -12,9 +12,9 @@ from mido import MidiFile
 from midi2audio import FluidSynth
 from tqdm import tqdm
 
-# ============================================
-# ====== Copied Logic from First Script ======
-# ============================================
+# ===============================
+# Piano Roll Videos Script Logic
+# ===============================
 
 SOUND_FONT_PATH = os.path.join(os.getcwd(), 'sounds', 'FluidR3_GM.sf2')
 FPS = 30
@@ -32,7 +32,7 @@ def parse_midi(file_path: str) -> pd.DataFrame:
     """
     midi = MidiFile(file_path)
     notes = []
-    tempo = 500000  # default tempo
+    tempo = 500000 
     ticks_per_beat = midi.ticks_per_beat
     track_times = [0] * len(midi.tracks)
 
@@ -367,9 +367,9 @@ def generate_piano_roll_video(midi_bytes: bytes) -> bytes:
 
     return video_bytes
 
-# =======================================
-# ========== Streamlit App =============
-# =======================================
+# =====================
+# Actual Streamlit App
+# =====================
 
 st.set_page_config(
     page_title="AI Music Assistant",
@@ -405,7 +405,7 @@ def render_sidebar():
     if st.sidebar.button("🔄 Reset Session"):
         reset_session()
 
-# ================== Page 1: Welcome ==================
+# Page 1: Welcome
 def welcome_page():
     st.image("banner.png", use_container_width=True)
     st.title("🎵 Welcome to the AI Music Assistant 🎵")
@@ -437,7 +437,7 @@ def welcome_page():
         st.session_state.page = 'instructions'
         st.rerun()
 
-# ================== Page 2: Instructions ==================
+# Page 2: Instructions
 def instructions_page():
     st.title("Instructions & Overview")
     st.markdown("""
@@ -478,7 +478,7 @@ def instructions_page():
         st.session_state.page = 'select_model'
         st.rerun()
 
-# ================== Page 3: Select Model & Upload ==================
+# Page 3: Select Model & Upload
 def select_model_page():
     st.title("Upload or Select a MIDI File, Then Choose a Model")
     st.warning("Remember: For strongly tonal examples, a V–I cadence can provide a satisfying ending!")
@@ -561,7 +561,7 @@ def select_model_page():
             st.session_state.page = 'output'
             st.rerun()
 
-# ================== Page 4: Output ==================
+# Page 4: Output
 def output_page():
     st.title("Your Model Output")
     if not st.session_state.uploaded_midi:
@@ -627,7 +627,7 @@ def output_page():
         st.session_state.page = 'closing'
         st.rerun()
 
-# ================== Page 5: Closing ==================
+# Page 5: Closing
 def closing_page():
     if os.path.exists("closing_banner.png"):
         st.image("closing_banner.png", use_container_width=True)
@@ -649,7 +649,7 @@ def closing_page():
         st.session_state.page = 'output'
         st.rerun()
 
-# ============== Main Flow ==============
+# Main Flow
 render_sidebar()
 
 if st.session_state.page == 'welcome':

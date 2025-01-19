@@ -59,7 +59,7 @@ if 'output_orders' not in st.session_state:
 if 'total_steps' not in st.session_state:
     # Calculate total steps: (inputs * outputs) = total ratings
     num_inputs = len(st.session_state.input_order)
-    num_outputs = 4  # Assuming 4 models per input
+    num_outputs = 4 
     st.session_state.total_steps = num_inputs * num_outputs  # e.g., 16 ratings
 
 # Function to reset the session
@@ -205,7 +205,6 @@ evaluation_criteria = [
 # Function to render the sidebar
 def render_sidebar():
     st.sidebar.title("📋 Contents")
-    # First separator
     st.sidebar.markdown("---")
     
     pages = ["welcome", "instructions", "testing", "closing"]
@@ -217,7 +216,6 @@ def render_sidebar():
         else:
             st.sidebar.markdown(f"{display_name}")
     
-    # Second separator
     st.sidebar.markdown("---")
     
     # Only show Testing Progress or Completed when in Testing-related pages
@@ -240,7 +238,6 @@ def render_sidebar():
             progress_percentage = completed_continuations / total_continuations if total_continuations else 0
             st.sidebar.progress(progress_percentage)
         
-        # Separator before Reset button
         st.sidebar.markdown("---")
     
     # Reset Session Button
@@ -249,7 +246,7 @@ def render_sidebar():
 
 # Welcome Page
 def welcome_page():
-    st.image("banner.png", use_container_width=True)  # Ensure 'banner.png' exists
+    st.image("banner.png", use_container_width=True)
     st.title("🎵 Welcome to the AI Music Assistant User Testing 🎵")
     st.markdown("""
         Thank you for participating! In this study, you'll listen to original MIDI files and continuations from various models. 
@@ -328,7 +325,7 @@ def instructions_page():
         st.session_state.page = 'testing'
         st.rerun()
 
-# Testing Page with Enhanced Tabs and Debug Button
+# Testing Page
 def testing_page():
     input_files = st.session_state.input_order
     current_input_index = st.session_state.current_input_index
@@ -421,7 +418,7 @@ def testing_page():
                         st.rerun()
         
             # Debug Submit Button
-            st.markdown("---")  # Separator before Debug button
+            st.markdown("---")
             if st.button("Debug Submit"):
                 for criterion in evaluation_criteria:
                     st.session_state.responses.append({
@@ -457,14 +454,14 @@ def testing_page():
 
 # Closing Page with Balloons
 def closing_page():
-    st.image("closing_banner.png", use_container_width=True)  # Ensure 'closing_banner.png' exists
+    st.image("closing_banner.png", use_container_width=True)
     st.title("✅ Thank You for Your Participation!")
     st.markdown("""
         We appreciate you taking the time to help us improve the AI Music Assistant. 
         Your feedback is invaluable and will contribute to the development of better musical tools.
     """)
 
-    # Trigger balloons effect after saving feedback
+    # Bfalloons effect after saving feedback
     st.balloons()
     
     with st.form("additional_feedback"):

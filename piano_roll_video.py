@@ -5,31 +5,24 @@ import pandas as pd
 import matplotlib.pyplot as plt
 from mido import MidiFile
 from midi2audio import FluidSynth
-from tqdm import tqdm  # For progress bar
-
-# ================== Configuration ==================
+from tqdm import tqdm
 
 # Configure these paths
-SOUND_FONT_PATH = os.path.join(os.getcwd(), 'sounds', 'FluidR3_GM.sf2')  # Path to your SoundFont file
-INPUT_MIDI_FILE = 'input-3.mid'  # Your input MIDI file
-INPUT_MIDI_DIR = os.path.join(os.getcwd(), 'input_midis')  # Directory containing the input MIDI files
-INPUT_MIDI_PATH = os.path.join(INPUT_MIDI_DIR, INPUT_MIDI_FILE)  # Full path to the input MIDI file
-OUTPUT_VIDEO_DIR = os.path.join(os.getcwd(), 'output_videos')  # Directory to save generated videos
-FINAL_VIDEO_PATH = os.path.join(OUTPUT_VIDEO_DIR, 'input-3.mp4')  # Final output video file path
-FPS = 30  # Frames per second for the video
-BPM = 130  # Updated Beats per minute
-BEATS_PER_BAR = 4  # Typically 4 beats per bar
+SOUND_FONT_PATH = os.path.join(os.getcwd(), 'sounds', 'FluidR3_GM.sf2')
+INPUT_MIDI_FILE = 'input-3.mid'
+INPUT_MIDI_DIR = os.path.join(os.getcwd(), 'input_midis')
+INPUT_MIDI_PATH = os.path.join(INPUT_MIDI_DIR, INPUT_MIDI_FILE)
+OUTPUT_VIDEO_DIR = os.path.join(os.getcwd(), 'output_videos')
+FINAL_VIDEO_PATH = os.path.join(OUTPUT_VIDEO_DIR, 'input-3.mp4')
+FPS = 30
+BPM = 130
+BEATS_PER_BAR = 4
 SECONDS_PER_BEAT = 60 / BPM
 SECONDS_PER_BAR = SECONDS_PER_BEAT * BEATS_PER_BAR
-
-# Path to FluidSynth executable (Windows Specific)
-# Replace the path below with the actual path to fluidsynth.exe on your system
-FLUIDSYNTH_PATH = 'C:\\Program Files\\FluidSynth\\fluidsynth.exe'  # Example path for Windows
 
 # Initialize FluidSynth with the specified path
 fs = FluidSynth(sound_font=SOUND_FONT_PATH)
 
-# ================== Functions ==================
 
 def convert_midi_to_audio(midi_file):
     """
@@ -145,10 +138,6 @@ def create_video_frames(data, total_time_in_seconds, fps=30):
     current_index = 0
     active_notes = []
     past_notes = []
-    
-    # Define look-ahead window for upcoming notes
-    # Removed the upper limit to include all upcoming notes
-    # LOOKAHEAD_SECONDS = 5  # Adjust as needed (Removed)
     
     for frame_idx in tqdm(range(frame_count), desc="Generating frames"):
         current_time = frame_idx / fps  # in seconds

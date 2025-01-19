@@ -5,13 +5,12 @@ import pandas as pd
 import matplotlib.pyplot as plt
 from mido import MidiFile
 from midi2audio import FluidSynth
-from tqdm import tqdm  # For progress bar
-import shutil  # For cleaning up temporary directories
+from tqdm import tqdm
+import shutil
 
-# ================== Configuration ==================
 
 # Configure these paths
-SOUND_FONT_PATH = os.path.join(os.getcwd(), 'sounds', 'FluidR3_GM.sf2')  # Path to your SoundFont file
+SOUND_FONT_PATH = os.path.join(os.getcwd(), 'sounds', 'FluidR3_GM.sf2')
 
 # List of MIDI files to process
 MIDI_FILES = [
@@ -39,23 +38,18 @@ MIDI_FILES = [
 
 # Directory paths
 CURRENT_DIR = os.getcwd()
-OUTPUT_VIDEO_DIR = os.path.join(CURRENT_DIR, 'output_videos')  # Directory to save generated videos
+OUTPUT_VIDEO_DIR = os.path.join(CURRENT_DIR, 'output_videos')
 
 # Video settings
-FPS = 30  # Frames per second for the video
-BPM = 130  # Beats per minute
-BEATS_PER_BAR = 4  # Typically 4 beats per bar
+FPS = 30
+BPM = 130
+BEATS_PER_BAR = 4
 SECONDS_PER_BEAT = 60 / BPM
 SECONDS_PER_BAR = SECONDS_PER_BEAT * BEATS_PER_BAR
-
-# Path to FluidSynth executable (Windows Specific)
-# Replace the path below with the actual path to fluidsynth.exe on your system
-FLUIDSYNTH_PATH = 'C:\\Program Files\\FluidSynth\\fluidsynth.exe'  # Example path for Windows
 
 # Initialize FluidSynth with the specified path
 fs = FluidSynth(sound_font=SOUND_FONT_PATH)
 
-# ================== Functions ==================
 
 def convert_midi_to_audio(midi_file):
     """
