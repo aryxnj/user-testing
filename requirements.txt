@@ -6,3 +6,6 @@ mido
 midi2audio
 tqdm
 tensorflow-cpu==2.17.1
+numpy
+pandas
+pretty_midi
