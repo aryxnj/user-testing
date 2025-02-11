@@ -11,6 +11,8 @@ from datetime import datetime
 from mido import MidiFile
 from midi2audio import FluidSynth
 from tqdm import tqdm
+from models.generate_lstm_continuation import run_lstm_continuation
+from models.generate_markov_continuation import run_markov_continuation
 
 # ===============================
 # Piano Roll Videos Script Logic
@@ -507,7 +509,7 @@ def select_model_page():
         uploaded_file = None
 
     st.markdown("**Select a Model:**")
-    model_list = ["basic", "lookback", "attention", "mono"]
+    model_list = ["lstm", "markov"]
     chosen_model = st.selectbox("Select a model:", model_list,
                                 help="Pick one of the Magenta Melody RNN models. See the details above!")
 
@@ -570,19 +572,38 @@ def output_page():
 
     st.markdown(f"**Selected Model**: `{st.session_state.selected_model}`")
     st.markdown("""
-        Below is the 'continuation' for your MIDI file. Currently, our system just returns the same file 
-        rather than generating a truly new continuation. Future improvements will allow each model 
-        to produce a unique transformation or extension.
+        Below is the **generated continuation** for your MIDI file, produced by the selected model.
     """)
 
-    try:
-        with tempfile.NamedTemporaryFile(delete=False, suffix=".mid") as tmp:
-            tmp.write(st.session_state.uploaded_midi)
-            tmp.flush()
-            df = parse_midi(tmp.name)
-    except Exception as e:
-        df = pd.DataFrame()
-        st.error(f"Error loading MIDI for output: {e}")
+
+    # Write the uploaded MIDI to a temporary file (this is our generation input)
+    with tempfile.NamedTemporaryFile(delete=False, suffix=".mid") as input_tmp:
+         input_tmp.write(st.session_state.uploaded_midi)
+         input_tmp.flush()
+         input_midi_path = input_tmp.name
+
+    # Define an output MIDI file path for the generated continuation
+    output_midi_path = os.path.join(tempfile.gettempdir(), "generated_continuation.mid")
+
+    # Call the appropriate model based on the selected option
+    if st.session_state.selected_model == "lstm":
+         run_lstm_continuation(input_midi_path, output_midi_path)
+    elif st.session_state.selected_model == "markov":
+         run_markov_continuation(input_midi_path, output_midi_path)
+    else:
+         st.error("Invalid model selected.")
+         return
+
+    # Read the generated MIDI for display and preview
+    with open(output_midi_path, 'rb') as f:
+         generated_midi_bytes = f.read()
+
+    # Now parse the generated MIDI into a DataFrame for the piano roll
+    with tempfile.NamedTemporaryFile(delete=False, suffix=".mid") as tmp:
+         tmp.write(generated_midi_bytes)
+         tmp.flush()
+         df = parse_midi(tmp.name)
+
 
     if df.empty:
         st.warning("No valid notes found in this MIDI.")
@@ -592,7 +613,7 @@ def output_page():
         st.pyplot(fig)
 
     try:
-        wav_bytes = convert_midi_to_wav(st.session_state.uploaded_midi)
+        wav_bytes = convert_midi_to_wav(generated_midi_bytes)
         st.markdown("### Listen to the Continuation:")
         st.audio(wav_bytes, format="audio/wav")
     except Exception as e:
@@ -600,7 +621,7 @@ def output_page():
 
     st.download_button(
         label="Download Generated MIDI",
-        data=st.session_state.uploaded_midi,
+        data=generated_midi_bytes,
         file_name="generated_continuation.mid",
         mime="audio/midi"
     )
@@ -608,7 +629,7 @@ def output_page():
     if st.button("Generate Piano Roll Video (.mp4)"):
         try:
             st.info("Generating piano roll video, please wait...")
-            video_bytes = generate_piano_roll_video(st.session_state.uploaded_midi)
+            video_bytes = generate_piano_roll_video(generated_midi_bytes)
             if video_bytes:
                 st.download_button(
                     label="Download Piano Roll Video",
