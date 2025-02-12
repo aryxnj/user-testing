@@ -388,7 +388,7 @@ if 'selected_model' not in st.session_state:
     st.session_state.selected_model = None
 
 def reset_session():
-    for key in ['page', 'uploaded_midi', 'selected_model', 'preview_shown', 'chosen_sample']:
+    for key in ['page', 'uploaded_midi', 'selected_model', 'preview_shown', 'chosen_sample', 'generated_midi_bytes']:
         if key in st.session_state:
             del st.session_state[key]
     st.rerun()
