@@ -413,9 +413,9 @@ def welcome_page():
     st.title("Welcome to: AI Music Assistant 🎵")
     st.markdown("""
         This interactive app allows you to upload (or select) a MIDI file and explore 
-        how a simple AI model can generate a melodic continuation. Experiment with 
+        how a AI models can generate melodic continuations. Experiment with 
         different models, view an on-screen piano roll, and download your results. 
-        We hope you enjoy this small taste of AI-assisted composition!
+        We hope you enjoy this taste of AI-assisted composition!
     """)
 
     with st.expander("View Example Videos of Input/Output"):
@@ -655,7 +655,7 @@ def closing_page():
 
     st.title("Thank You for Using the AI Music Assistant!")
     st.markdown("""
-        We hope you enjoyed exploring our simple AI-based MIDI tool. 
+        We hope you enjoyed exploring the AI-based MIDI tool. 
         If you wish, you can select a different model below and run the same file again 
         without any additional fireworks.
     """)
@@ -665,10 +665,13 @@ def closing_page():
         st.balloons()
 
     new_model = st.selectbox("Select a different model to rerun:", ["LSTM", "Markov"])
+    # Make sure to reset generated_midi_bytes so the script runs again.
     if st.button("Rerun with New Model"):
         st.session_state.selected_model = new_model
+        st.session_state.generated_midi_bytes = None
         st.session_state.page = 'output'
         st.rerun()
+
 
 # Main Flow
 render_sidebar()
