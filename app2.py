@@ -427,11 +427,11 @@ def welcome_page():
 
         with tab2:
             st.subheader("Continuation 1 - Model: LSTM")
-            st.video("output_videos/output-l.mp4")
+            st.video("output_videos/output-3-lstm.mp4")
 
         with tab3:
             st.subheader("Continuation 2 - Model: Markov")
-            st.video("output_videos/output-m.mp4")
+            st.video("output_videos/output-3-markov.mp4")
 
     st.markdown("---")
     st.info("When you're done viewing these examples, click the button below to continue.")

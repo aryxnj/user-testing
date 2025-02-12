@@ -10,7 +10,7 @@ import pretty_midi
 MODEL_PATH = "models/lstm_model.h5"  # Update the path as needed
 # The following defaults can be overridden by function parameters
 DEFAULT_NUM_GENERATION_STEPS = 16  # How many new notes to generate
-DEFAULT_TEMPERATURE = 0.4          # Lower => more predictable
+DEFAULT_TEMPERATURE = 0.6          # Lower => more predictable
 DEFAULT_TOP_K = 5                  # Restrict sampling to top-5 tokens
 DEFAULT_MAX_INTERVAL = 12          # Prevent leaps larger than one octave
 
