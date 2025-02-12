@@ -566,6 +566,8 @@ def select_model_page():
 # Page 4: Output
 def output_page():
     st.title("Your Model Output")
+    if 'generated_midi_bytes' not in st.session_state:
+        st.session_state.generated_midi_bytes = None
     if not st.session_state.uploaded_midi:
         st.warning("No MIDI file found. Please go back and select/upload one.")
         return
@@ -576,27 +578,31 @@ def output_page():
     """)
 
 
-    # Write the uploaded MIDI to a temporary file (this is our generation input)
-    with tempfile.NamedTemporaryFile(delete=False, suffix=".mid") as input_tmp:
-         input_tmp.write(st.session_state.uploaded_midi)
-         input_tmp.flush()
-         input_midi_path = input_tmp.name
+    if st.session_state.generated_midi_bytes is None:
+        # Write the uploaded MIDI to a temporary file (this is our generation input)
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".mid") as input_tmp:
+            input_tmp.write(st.session_state.uploaded_midi)
+            input_tmp.flush()
+            input_midi_path = input_tmp.name
 
-    # Define an output MIDI file path for the generated continuation
-    output_midi_path = os.path.join(tempfile.gettempdir(), "generated_continuation.mid")
+        # Define an output MIDI file path for the generated continuation
+        output_midi_path = os.path.join(tempfile.gettempdir(), "generated_continuation.mid")
 
-    # Call the appropriate model based on the selected option
-    if st.session_state.selected_model == "lstm":
-         run_lstm_continuation(input_midi_path, output_midi_path)
-    elif st.session_state.selected_model == "markov":
-         run_markov_continuation(input_midi_path, output_midi_path)
-    else:
-         st.error("Invalid model selected.")
-         return
+        # Call the appropriate model based on the selected option
+        if st.session_state.selected_model == "lstm":
+            run_lstm_continuation(input_midi_path, output_midi_path)
+        elif st.session_state.selected_model == "markov":
+            run_markov_continuation(input_midi_path, output_midi_path)
+        else:
+            st.error("Invalid model selected.")
+            return
 
-    # Read the generated MIDI for display and preview
-    with open(output_midi_path, 'rb') as f:
-         generated_midi_bytes = f.read()
+        # Read the generated MIDI for display and preview
+        with open(output_midi_path, 'rb') as f:
+            st.session_state.generated_midi_bytes = f.read()
+
+    # We'll use generated_midi_bytes below, no matter what
+    generated_midi_bytes = st.session_state.generated_midi_bytes
 
     # Now parse the generated MIDI into a DataFrame for the piano roll
     with tempfile.NamedTemporaryFile(delete=False, suffix=".mid") as tmp:
@@ -664,7 +670,7 @@ def closing_page():
         st.session_state.closing_visited = True
         st.balloons()
 
-    new_model = st.selectbox("Select a different model to rerun:", ["basic", "lookback", "attention", "mono"])
+    new_model = st.selectbox("Select a different model to rerun:", ["lstm", "markov"])
     if st.button("Rerun with New Model"):
         st.session_state.selected_model = new_model
         st.session_state.page = 'output'
