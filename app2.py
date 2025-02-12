@@ -410,7 +410,7 @@ def render_sidebar():
 # Page 1: Welcome
 def welcome_page():
     st.image("banner.png", use_container_width=True)
-    st.title("🎵 Welcome to: AI Music Assistant 🎵")
+    st.title("Welcome to: AI Music Assistant 🎵")
     st.markdown("""
         This interactive app allows you to upload (or select) a MIDI file and explore 
         how a simple AI model can generate a melodic continuation. Experiment with 
@@ -422,15 +422,15 @@ def welcome_page():
         tab1, tab2, tab3 = st.tabs(["Familiar Tonal Snippet", "Mono Model Output", "Lookback Model Output"])
         
         with tab1:
-            st.subheader("Original Input (input-3): A Familiar Tonal Snippet")
+            st.subheader("Input MIDI: A Familiar Tonal Snippet")
             st.video("output_videos/input-3.mp4")
 
         with tab2:
-            st.subheader("Mono Model Output (output-3-mono): A Monophonic Continuation")
+            st.subheader("Continuation 1 - Model: LSTM")
             st.video("output_videos/output-3-mono.mp4")
 
         with tab3:
-            st.subheader("Lookback Model Output (output-3-lookback): A Continuation Considering Prior Measures")
+            st.subheader("Continuation 2 - Model: Markov")
             st.video("output_videos/output-3-lookback.mp4")
 
     st.markdown("---")
