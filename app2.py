@@ -419,7 +419,7 @@ def welcome_page():
     """)
 
     with st.expander("View Example Videos of Input/Output"):
-        tab1, tab2, tab3 = st.tabs(["Familiar Tonal Snippet", "Mono Model Output", "Lookback Model Output"])
+        tab1, tab2, tab3 = st.tabs(["Familiar Tonal Snippet", "LSTM Model Output", "Markov Model Output"])
         
         with tab1:
             st.subheader("Input MIDI: A Familiar Tonal Snippet")
@@ -446,32 +446,26 @@ def instructions_page():
         This AI Music Assistant offers a straightforward workflow:
 
         1. **Select or Upload a MIDI File**  
-           You can pick from our provided sample MIDI files (like a familiar snippet, or an atonal example), 
-           or upload your own `.mid` file to explore.
+        Choose from our provided sample MIDI files—or upload your own `.mid` file—to serve as the basis for a generated continuation.
 
         2. **Choose a Model**  
-           We'll run your chosen file through a placeholder AI model. In the future, each model 
-           will generate unique transformations and continuations.
+        Select one of two AI models:
+        - **LSTM Model**: Uses a two-layer LSTM network trained for next-note prediction. It employs top‑k sampling with temperature scaling to produce smooth, coherent melodic continuations.
+        - **Markov Model**: Utilizes a first‑order Markov chain built from training data. This model samples transitions between (pitch, duration) pairs to generate a continuation that retains rhythmic and melodic variability.
 
         3. **Visualise & Listen**  
-           Instantly view the piano roll representation of your melody or the generated continuation, 
-           and listen to it via an audio player—no extra downloads required for a quick preview.
+        Instantly view a piano roll representation of the generated continuation and listen to an audio preview—no extra downloads required.
 
         4. **Download**  
-           If you like, you can download both the MIDI version of the result and a generated video 
-           showing the piano roll in motion.
+        If you’re happy with the result, download both the generated MIDI file and a video of the piano roll in motion.
 
         ---
-        **Magenta Model Notes** (Melody RNN):  
-        - **basic**: A simple recurrent neural network that learns sequential note-to-note patterns.  
-        - **lookback**: References measures from the past to inform future notes, allowing more thematic consistency.  
-        - **attention**: Utilises attention mechanisms to focus on key melodic motifs, shaping coherent developments.  
-        - **mono**: Ensures only one note sounds at any given time, offering a purely monophonic line.
-
-        These models are part of the Magenta project by Google, which explores machine learning as a tool in the creative process. 
+        **Model Details:**
+        - **LSTM Model**: Predicts the next note based on prior context using a deep recurrent network, balancing creativity and musical coherence.
+        - **Markov Model**: Generates continuations by sampling state transitions from a probabilistic chain, preserving both pitch and rhythmic information.
 
         ---
-        *Tip: Large leaps can add excitement but may sound jarring if overused. Try listening for smooth stepwise motion versus leaps!*
+        *Tip: While large leaps can add excitement, they may sound jarring if overused. Try listening for a mix of smooth, stepwise motion with occasional contrasts!*
     """)
 
     st.info("Next step: upload or choose a MIDI file, then select a model. Explore the pop-ups and side notes for music tips!")
