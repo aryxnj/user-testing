@@ -9,11 +9,11 @@ from tqdm import tqdm
 
 # Configure these paths
 SOUND_FONT_PATH = os.path.join(os.getcwd(), 'sounds', 'FluidR3_GM.sf2')
-INPUT_MIDI_FILE = 'output-l.mid'
+INPUT_MIDI_FILE = 'output-6-lstm.mid'
 INPUT_MIDI_DIR = os.path.join(os.getcwd(), 'input_midis')
 INPUT_MIDI_PATH = os.path.join(INPUT_MIDI_DIR, INPUT_MIDI_FILE)
 OUTPUT_VIDEO_DIR = os.path.join(os.getcwd(), 'output_videos')
-FINAL_VIDEO_PATH = os.path.join(OUTPUT_VIDEO_DIR, 'output-l.mp4')
+FINAL_VIDEO_PATH = os.path.join(OUTPUT_VIDEO_DIR, 'output-6-lstm.mp4')
 FPS = 30
 BPM = 130
 BEATS_PER_BAR = 4

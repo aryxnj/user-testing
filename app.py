@@ -27,15 +27,15 @@ if 'current_output_index' not in st.session_state:
 if 'input_order' not in st.session_state:
     # Define input files directory
     input_dir = Path("output_videos/")
-    # List all input .mp4 files
-    input_files = sorted([f for f in input_dir.glob("input-*.mp4")])
+    # List all input .mp4 files, excluding the Atonal, Wide-Range Melody (input-5.mp4)
+    input_files = sorted([f for f in input_dir.glob("input-*.mp4") if f.name != "input-5.mp4"])
     # Shuffle the input order
     random.shuffle(input_files)
     st.session_state.input_order = input_files
 
 if 'output_orders' not in st.session_state:
     # Define the models based on the suffixes in output filenames
-    models = ['attention', 'basic', 'lookback', 'mono']
+    models = ['attention', 'basic', 'lookback', 'mono', 'lstm', 'markov']
     output_dir = Path("output_videos/")
     output_orders = {}
     for input_file in st.session_state.input_order:
@@ -59,8 +59,8 @@ if 'output_orders' not in st.session_state:
 if 'total_steps' not in st.session_state:
     # Calculate total steps: (inputs * outputs) = total ratings
     num_inputs = len(st.session_state.input_order)
-    num_outputs = 4 
-    st.session_state.total_steps = num_inputs * num_outputs  # e.g., 16 ratings
+    num_outputs = 6
+    st.session_state.total_steps = num_inputs * num_outputs  # e.g., 18 ratings
 
 # Function to reset the session
 def reset_session():
@@ -149,7 +149,6 @@ def save_feedback():
 input_name_mapping = {
     "input-3.mp4": "Familiar Tonal Snippet",
     "input-4.mp4": "Medium-Length Original Melody",
-    "input-5.mp4": "Atonal, Wide-Range Melody",
     "input-6.mp4": "Long Repetitive Motif"
 }
 
@@ -313,11 +312,7 @@ def instructions_page():
             - **Description:** A custom, moderately long melody that mixes different note lengths and steps mostly within a major scale.
             - **Reasoning:** Provides a more realistic musical context, testing the model’s handling of basic musical structure, varied rhythms, and thematic development.
 
-        3. **Atonal, Wide-Range Melody**
-            - **Description:** A short sequence without a clear key, incorporating large jumps and diverse pitches.
-            - **Reasoning:** Challenges the model to cope with irregular, disjunct patterns and to see if it imposes its own structure or explores outside tonal norms.
-
-        4. **Long Repetitive Motif**
+        3. **Long Repetitive Motif**
             - **Description:** An extended sequence made by repeating a two-bar motif several times.
             - **Reasoning:** Assesses how the model deals with longer context and repetitive patterns. Will it continue with variations, remain consistent, or diverge unexpectedly?
     """)
