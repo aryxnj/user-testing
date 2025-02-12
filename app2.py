@@ -410,7 +410,7 @@ def render_sidebar():
 # Page 1: Welcome
 def welcome_page():
     st.image("banner.png", use_container_width=True)
-    st.title("🎵 Welcome to the AI Music Assistant 🎵")
+    st.title("🎵 Welcome to: AI Music Assistant 🎵")
     st.markdown("""
         This interactive app allows you to upload (or select) a MIDI file and explore 
         how a simple AI model can generate a melodic continuation. Experiment with 
@@ -509,7 +509,7 @@ def select_model_page():
         uploaded_file = None
 
     st.markdown("**Select a Model:**")
-    model_list = ["lstm", "markov"]
+    model_list = ["LSTM", "Markov"]
     chosen_model = st.selectbox("Select a model:", model_list,
                                 help="Pick one of the Magenta Melody RNN models. See the details above!")
 
@@ -589,9 +589,9 @@ def output_page():
         output_midi_path = os.path.join(tempfile.gettempdir(), "generated_continuation.mid")
 
         # Call the appropriate model based on the selected option
-        if st.session_state.selected_model == "lstm":
+        if st.session_state.selected_model == "LSTM":
             run_lstm_continuation(input_midi_path, output_midi_path)
-        elif st.session_state.selected_model == "markov":
+        elif st.session_state.selected_model == "Markov":
             run_markov_continuation(input_midi_path, output_midi_path)
         else:
             st.error("Invalid model selected.")
@@ -670,7 +670,7 @@ def closing_page():
         st.session_state.closing_visited = True
         st.balloons()
 
-    new_model = st.selectbox("Select a different model to rerun:", ["lstm", "markov"])
+    new_model = st.selectbox("Select a different model to rerun:", ["LSTM", "Markov"])
     if st.button("Rerun with New Model"):
         st.session_state.selected_model = new_model
         st.session_state.page = 'output'
